@@ -15,6 +15,9 @@
 - [M1 — Data Pipeline](#m1--data-pipeline)
 - [M2 — Nowcasting Pipeline (TCN + XGBoost)](#m2--nowcasting-pipeline-tcn--xgboost)
 - [M3 — Forecasting Pipeline (BiLSTM + TCN Ensemble)](#m3--forecasting-pipeline-bilstm--tcn-ensemble)
+- [M3.5 — Agent Orchestration (LangGraph)](#m35--agent-orchestration-langgraph)
+- [M3.6 — AutoML Tuning (FLAML)](#m36--automl-tuning-flaml)
+- [M3.7 — LLM Alert Intelligence (Phi-3-mini / Mistral)](#m37--llm-alert-intelligence-phi-3-mini--mistral)
 - [M4 — Dashboard & Visualization](#m4--dashboard--visualization)
 - [M5 — Evaluation & Optimization](#m5--evaluation--optimization)
 - [M6 — Production Deployment](#m6--production-deployment)
@@ -49,6 +52,19 @@ Both pipelines consume real-time SoLEXS (soft X-ray) and HEL1OS (hard X-ray) lig
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
+│              LANGGRAPH AGENT ORCHESTRATION LAYER                 │
+│                                                                  │
+│  [Ingestion Agent] → [Preprocess Agent] → [Router Agent]        │
+│                                                ↓         ↓      │
+│                                         [Nowcast]  [Forecast]   │
+│                                                ↓         ↓      │
+│                                         [Alert Agent]           │
+│                                                ↓                │
+│                                         [LLM Report Agent]      │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
 │                    Data Ingestion Layer                          │
 │   FITS Reader → Calibration → Resampling → Background Sub      │
 └───────────────────────────┬─────────────────────────────────────┘
@@ -71,7 +87,7 @@ Both pipelines consume real-time SoLEXS (soft X-ray) and HEL1OS (hard X-ray) lig
 │  - rolling std       │    │   Lead Time Estimate          │
 │  - spectral index    │    │                               │
 │       │              │    └──────────────┬────────────────┘
-│  [XGBoost]           │                   │
+│  [XGBoost + FLAML]   │                   │
 │  - Flare / No Flare  │                   │
 │  - Class: C/M/X      │                   │
 └────────┬─────────────┘                   │
@@ -79,9 +95,16 @@ Both pipelines consume real-time SoLEXS (soft X-ray) and HEL1OS (hard X-ray) lig
          └──────────────┬──────────────────┘
                         ▼
 ┌─────────────────────────────────────────────────────────────────┐
+│                  LLM INTELLIGENCE LAYER                          │
+│         Phi-3-mini / Mistral 7B (runs locally via Ollama)       │
+│   "M-class flare at 10:33 UTC. Grid operators: action advised." │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
 │              Master Flare Catalogue + Alert Engine              │
 │          Unified Dashboard (FastAPI + React/Streamlit)           │
-│    Light curve plots | Alert overlay | Lead time annotation     │
+│    Light curve | Alert overlay | Lead time | LLM report        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -95,6 +118,9 @@ Both pipelines consume real-time SoLEXS (soft X-ray) and HEL1OS (hard X-ray) lig
 | Preprocessing | `pandas`, `scipy`, `sklearn` |
 | Nowcasting ML | `pytorch` (TCN), `xgboost` |
 | Forecasting ML | `pytorch` (BiLSTM + TCN) |
+| AutoML Tuning | `flaml` (XGBoost hyperparameter search) |
+| Agent Orchestration | `langgraph` (stateful multi-agent pipeline) |
+| LLM Intelligence | `Phi-3-mini` / `Mistral 7B` via `ollama` |
 | Experiment Tracking | `mlflow` |
 | Backend API | `FastAPI` |
 | Frontend Dashboard | `React + TypeScript` or `Streamlit` |
@@ -108,9 +134,9 @@ Both pipelines consume real-time SoLEXS (soft X-ray) and HEL1OS (hard X-ray) lig
 ## Milestone Map
 
 ```
-M0 ──► M1 ──► M2 ──► M3 ──► M4 ──► M5 ──► M6
-Setup  Data   Now-   Fore-  Dash-  Eval   Prod
-       Pipe   cast   cast   board  &Opt   Ready
+M0 ──► M1 ──► M2 ──► M3 ──► M3.5 ──► M3.6 ──► M3.7 ──► M4 ──► M5 ──► M6
+Setup  Data   Now-   Fore-  Lang-    FLAML    LLM      Dash-  Eval   Prod
+       Pipe   cast   cast   Graph    AutoML   Alerts   board  &Opt   Ready
 ```
 
 | Milestone | Deliverable | Est. Time |
@@ -119,9 +145,12 @@ Setup  Data   Now-   Fore-  Dash-  Eval   Prod
 | M1 | FITS pipeline, labeled dataset | Day 3–5 |
 | M2 | Nowcasting model, evaluated | Day 6–9 |
 | M3 | Forecasting model, evaluated | Day 10–13 |
-| M4 | Dashboard live with alerts | Day 14–16 |
-| M5 | Optimized, benchmarked, documented | Day 17–19 |
-| M6 | Dockerized, CI/CD, monitored, deployed | Day 20–21 |
+| M3.5 | LangGraph agent orchestration | Day 14 |
+| M3.6 | FLAML XGBoost auto-tuning | Day 15 |
+| M3.7 | LLM alert report generation | Day 16 |
+| M4 | Dashboard live with alerts | Day 17–18 |
+| M5 | Optimized, benchmarked, documented | Day 19–20 |
+| M6 | Dockerized, CI/CD, monitored, deployed | Day 21 |
 
 ---
 
@@ -166,8 +195,9 @@ python -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
 
 pip install astropy sunpy numpy pandas scipy scikit-learn \
-            torch xgboost mlflow fastapi uvicorn \
-            pytest httpx python-dotenv pyyaml \
+            torch xgboost flaml mlflow fastapi uvicorn \
+            langgraph langchain-core \
+            requests pytest httpx python-dotenv pyyaml \
             plotly matplotlib seaborn
 ```
 
@@ -718,6 +748,403 @@ def compute_lead_time(y_pred_proba: np.ndarray,
 
 ---
 
+## M3.5 — Agent Orchestration (LangGraph)
+
+LangGraph converts your isolated scripts into a **stateful, fault-tolerant agent pipeline**. Each node is an agent. Edges define routing logic. If any agent fails, the graph retries or routes to a fallback.
+
+### 3.5.1 Install
+
+```bash
+pip install langgraph langchain-core
+```
+
+### 3.5.2 Define Agent State
+
+```python
+# src/orchestration/state.py
+
+from typing import TypedDict, Optional
+import pandas as pd
+import numpy as np
+
+class SolarPipelineState(TypedDict):
+    # Ingestion
+    solexs_path: str
+    hel1os_path: str
+    raw_df: Optional[pd.DataFrame]
+
+    # Preprocessing
+    processed_df: Optional[pd.DataFrame]
+    feature_matrix: Optional[np.ndarray]
+    windows_X: Optional[np.ndarray]
+
+    # Nowcasting
+    nowcast_class: Optional[str]        # C / M / X / None
+    nowcast_confidence: Optional[float]
+
+    # Forecasting
+    forecast_proba: Optional[float]
+    forecast_horizon: Optional[int]
+    lead_time_minutes: Optional[float]
+
+    # Intelligence
+    alert_triggered: bool
+    llm_report: Optional[str]
+
+    # Meta
+    errors: list[str]
+    timestamp: str
+```
+
+### 3.5.3 Define Agent Nodes
+
+```python
+# src/orchestration/agents.py
+
+from langgraph.graph import StateGraph, END
+from src.ingestion.fits_reader import read_solexs, read_hel1os, merge_instruments
+from src.preprocessing.pipeline import subtract_background, engineer_features
+from src.nowcasting.train import run_nowcast_inference
+from src.forecasting.ensemble import run_forecast_inference
+from src.intelligence.llm_reporter import generate_flare_report
+
+
+def ingestion_agent(state: SolarPipelineState) -> SolarPipelineState:
+    """Reads and merges SoLEXS + HEL1OS FITS files."""
+    try:
+        solexs = read_solexs(state["solexs_path"])
+        hel1os = read_hel1os(state["hel1os_path"])
+        merged = merge_instruments(solexs, hel1os)
+        return {**state, "raw_df": merged}
+    except Exception as e:
+        return {**state, "errors": state["errors"] + [f"Ingestion: {e}"]}
+
+
+def preprocessing_agent(state: SolarPipelineState) -> SolarPipelineState:
+    """Background subtraction + feature engineering."""
+    try:
+        clean = subtract_background(state["raw_df"])
+        features = engineer_features(clean)
+        return {**state, "processed_df": features}
+    except Exception as e:
+        return {**state, "errors": state["errors"] + [f"Preprocessing: {e}"]}
+
+
+def nowcast_agent(state: SolarPipelineState) -> SolarPipelineState:
+    """Runs TCN + XGBoost nowcasting inference."""
+    cls, conf = run_nowcast_inference(state["processed_df"])
+    return {**state, "nowcast_class": cls, "nowcast_confidence": conf}
+
+
+def forecast_agent(state: SolarPipelineState) -> SolarPipelineState:
+    """Runs BiLSTM + TCN ensemble forecasting inference."""
+    proba, lead = run_forecast_inference(state["processed_df"], horizon=15)
+    return {**state, "forecast_proba": proba, "lead_time_minutes": lead}
+
+
+def alert_router(state: SolarPipelineState) -> str:
+    """
+    Conditional edge: decides whether to trigger LLM report.
+    Returns next node name.
+    """
+    if state["nowcast_class"] in ["M", "X"] or state["forecast_proba"] > 0.75:
+        return "llm_report_agent"
+    return "end"
+
+
+def llm_report_agent(state: SolarPipelineState) -> SolarPipelineState:
+    """Generates natural language alert using local LLM."""
+    report = generate_flare_report({
+        "class": state["nowcast_class"],
+        "confidence": state["nowcast_confidence"],
+        "forecast_proba": state["forecast_proba"],
+        "lead_time": state["lead_time_minutes"],
+        "timestamp": state["timestamp"]
+    })
+    return {**state, "alert_triggered": True, "llm_report": report}
+```
+
+### 3.5.4 Build and Compile the Graph
+
+```python
+# src/orchestration/graph.py
+
+from langgraph.graph import StateGraph, END
+from src.orchestration.agents import (
+    ingestion_agent, preprocessing_agent,
+    nowcast_agent, forecast_agent,
+    alert_router, llm_report_agent
+)
+from src.orchestration.state import SolarPipelineState
+
+def build_pipeline() -> StateGraph:
+    graph = StateGraph(SolarPipelineState)
+
+    # Add nodes
+    graph.add_node("ingestion",      ingestion_agent)
+    graph.add_node("preprocessing",  preprocessing_agent)
+    graph.add_node("nowcast",        nowcast_agent)
+    graph.add_node("forecast",       forecast_agent)
+    graph.add_node("llm_report",     llm_report_agent)
+
+    # Linear edges
+    graph.set_entry_point("ingestion")
+    graph.add_edge("ingestion",     "preprocessing")
+    graph.add_edge("preprocessing", "nowcast")
+    graph.add_edge("nowcast",       "forecast")
+
+    # Conditional edge — only call LLM if alert warranted
+    graph.add_conditional_edges(
+        "forecast",
+        alert_router,
+        {
+            "llm_report_agent": "llm_report",
+            "end": END
+        }
+    )
+    graph.add_edge("llm_report", END)
+
+    return graph.compile()
+
+
+# Run the full pipeline
+if __name__ == "__main__":
+    pipeline = build_pipeline()
+    result = pipeline.invoke({
+        "solexs_path": "data/raw/solexs/2024-02-22.fits",
+        "hel1os_path": "data/raw/hel1os/2024-02-22.fits",
+        "errors": [],
+        "alert_triggered": False,
+        "timestamp": "2024-02-22T10:33:00Z"
+    })
+    print("Nowcast:", result["nowcast_class"], result["nowcast_confidence"])
+    print("Forecast P:", result["forecast_proba"])
+    print("LLM Report:", result["llm_report"])
+```
+
+**M3.5 Checkpoint:** Full pipeline runs end-to-end via `python src/orchestration/graph.py`. Conditional alert routing verified on known flare FITS files.
+
+---
+
+## M3.6 — AutoML Tuning (FLAML)
+
+FLAML replaces manual XGBoost hyperparameter search. Give it a time budget — it finds the optimal config automatically.
+
+### 3.6.1 Install
+
+```bash
+pip install flaml
+```
+
+### 3.6.2 Auto-tune XGBoost Nowcasting Classifier
+
+```python
+# src/nowcasting/flaml_tuner.py
+
+from flaml import AutoML
+import numpy as np
+import mlflow
+
+def autotune_nowcast(X_train: np.ndarray,
+                     y_train: np.ndarray,
+                     X_val: np.ndarray,
+                     y_val: np.ndarray,
+                     time_budget_seconds: int = 3600) -> AutoML:
+    """
+    FLAML searches over XGBoost, LightGBM, RandomForest, ExtraTrees.
+    Optimizes for ROC-AUC. Returns best model ready for inference.
+    """
+    automl = AutoML()
+
+    with mlflow.start_run(run_name="flaml_autotune_nowcast"):
+        automl.fit(
+            X_train, y_train,
+            task="classification",
+            metric="roc_auc",
+            time_budget=time_budget_seconds,
+            estimator_list=["xgboost", "lgbm", "rf", "extra_tree"],
+            eval_method="holdout",
+            X_val=X_val,
+            y_val=y_val,
+            log_file_name="logs/flaml_nowcast.log",
+            verbose=2
+        )
+
+        mlflow.log_param("best_estimator", automl.best_estimator)
+        mlflow.log_params(automl.best_config)
+        mlflow.log_metric("best_val_auc", 1 - automl.best_loss)
+
+        print(f"Best model:  {automl.best_estimator}")
+        print(f"Best config: {automl.best_config}")
+        print(f"Val AUC:     {1 - automl.best_loss:.4f}")
+
+    return automl
+
+
+def autotune_forecast(X_train, y_train, X_val, y_val,
+                      time_budget_seconds: int = 1800) -> AutoML:
+    """Same FLAML search for the ensemble feature layer."""
+    automl = AutoML()
+    with mlflow.start_run(run_name="flaml_autotune_forecast"):
+        automl.fit(
+            X_train, y_train,
+            task="classification",
+            metric="roc_auc",
+            time_budget=time_budget_seconds,
+            estimator_list=["xgboost", "lgbm"],
+            X_val=X_val,
+            y_val=y_val
+        )
+    return automl
+```
+
+**What FLAML searches over automatically:**
+
+| Parameter | Search Range |
+|---|---|
+| `n_estimators` | 4 – 32768 |
+| `max_depth` | 4 – 12 |
+| `learning_rate` | 0.001 – 1.0 |
+| `subsample` | 0.5 – 1.0 |
+| `colsample_bytree` | 0.5 – 1.0 |
+| `reg_alpha / lambda` | 1e-10 – 1.0 |
+
+**M3.6 Checkpoint:** FLAML log saved at `logs/flaml_nowcast.log`. Best config printed and saved to MLflow. Retrain XGBoost with found params.
+
+---
+
+## M3.7 — LLM Alert Intelligence (Phi-3-mini / Mistral)
+
+This is your **differentiator**. No other PS15 team will have it. When an alert fires, a local LLM generates a plain-English operational bulletin — automatically.
+
+### 3.7.1 Setup Ollama (Local LLM Runtime)
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull models (choose one)
+ollama pull phi3:mini        # Microsoft Phi-3-mini — 3.8B, fast, accurate
+ollama pull mistral:7b       # Mistral 7B — larger, richer output
+
+# Verify
+ollama run phi3:mini "Hello"
+```
+
+### 3.7.2 LLM Report Generator
+
+```python
+# src/intelligence/llm_reporter.py
+
+import requests
+import json
+
+OLLAMA_URL = "http://localhost:11434/api/generate"
+MODEL = "phi3:mini"   # swap to "mistral:7b" for richer output
+
+SYSTEM_PROMPT = """You are an expert solar physicist and space weather operator assistant.
+Your job is to generate concise, actionable operational bulletins when solar flares are detected.
+Always include: event classification, estimated impact severity, affected systems, and recommended actions.
+Keep the bulletin under 5 sentences. Be precise and professional."""
+
+def generate_flare_report(flare_data: dict) -> str:
+    """
+    Generates a natural language alert bulletin using local LLM.
+
+    Args:
+        flare_data: dict with keys: class, confidence, forecast_proba,
+                    lead_time, timestamp, peak_flux (optional)
+    Returns:
+        str: Operational bulletin text
+    """
+    user_prompt = f"""
+    Solar flare event detected by SolarSentinel (Aditya-L1 SoLEXS + HEL1OS):
+
+    - Detection time:      {flare_data.get('timestamp', 'N/A')}
+    - Nowcast class:       {flare_data.get('class', 'Unknown')}
+    - Nowcast confidence:  {flare_data.get('confidence', 0):.0%}
+    - Forecast probability:{flare_data.get('forecast_proba', 0):.0%} (next 15 min)
+    - Estimated lead time: {flare_data.get('lead_time', 0):.1f} minutes before peak
+
+    Generate a space weather operational bulletin for satellite operators and grid managers.
+    """
+
+    payload = {
+        "model": MODEL,
+        "system": SYSTEM_PROMPT,
+        "prompt": user_prompt,
+        "stream": False,
+        "options": {
+            "temperature": 0.3,   # low temp = factual, consistent
+            "num_predict": 200
+        }
+    }
+
+    try:
+        response = requests.post(OLLAMA_URL, json=payload, timeout=30)
+        result = response.json()
+        return result.get("response", "LLM unavailable — manual review required.")
+    except Exception as e:
+        return f"Alert: {flare_data.get('class', '?')}-class flare detected. LLM offline: {e}"
+
+
+def generate_quiet_summary(stats: dict) -> str:
+    """Generates a daily quiet-sun summary report."""
+    prompt = f"""
+    No significant flares detected in the past 24 hours.
+    Background flux level: {stats.get('mean_flux', 'N/A')} W/m²
+    Max flux observed:     {stats.get('max_flux', 'N/A')} W/m²
+    Solar activity index:  {stats.get('activity_index', 'Low')}
+
+    Write a 2-sentence quiet-sun daily summary for space weather operators.
+    """
+    payload = {"model": MODEL, "prompt": prompt, "stream": False}
+    try:
+        r = requests.post(OLLAMA_URL, json=payload, timeout=30)
+        return r.json().get("response", "Quiet sun. No action required.")
+    except:
+        return "Quiet sun conditions. No significant activity detected."
+```
+
+### 3.7.3 Example Output
+
+When an M-class flare fires, the dashboard renders:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🔴 SOLAR FLARE ALERT — M2.3 CLASS                              │
+│  Detected: 2024-02-22 10:33 UTC | Lead Time: 18 min             │
+├─────────────────────────────────────────────────────────────────┤
+│  OPERATIONAL BULLETIN (auto-generated by Phi-3-mini)            │
+│                                                                  │
+│  "An M2.3-class solar flare has been detected at 10:33 UTC      │
+│  via Aditya-L1 SoLEXS and HEL1OS instruments. This event        │
+│  poses moderate risk to HF radio communications on the           │
+│  sunlit side of Earth and may cause minor GPS degradation.       │
+│  Satellite operators should activate anomaly monitoring          │
+│  protocols. Power grid operators in high-latitude regions        │
+│  are advised to monitor GIC levels for the next 2 hours."       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 3.7.4 Severity-Aware Prompting
+
+```python
+SEVERITY_CONTEXT = {
+    "C": "minor event. Low risk to infrastructure.",
+    "M": "moderate event. HF radio disruption likely. Satellite precautions advised.",
+    "X": "MAJOR EVENT. Severe radio blackouts. GPS degradation. Power grid GIC risk. IMMEDIATE action required."
+}
+
+def get_severity_context(flare_class: str) -> str:
+    prefix = flare_class[0].upper() if flare_class else "C"
+    return SEVERITY_CONTEXT.get(prefix, "unknown severity.")
+```
+
+**M3.7 Checkpoint:** `ollama run phi3:mini` responding locally. `generate_flare_report()` returns bulletin in < 3 seconds. Dashboard renders LLM text block on alert trigger.
+
+---
+
 ## M4 — Dashboard & Visualization
 
 ### 4.1 FastAPI Backend
@@ -937,6 +1364,9 @@ services:
     environment:
       - PRADAN_TOKEN=${PRADAN_TOKEN}
       - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - OLLAMA_URL=http://ollama:11434
+    depends_on:
+      - ollama
 
   dashboard:
     build:
@@ -945,6 +1375,20 @@ services:
       - "3000:3000"
     depends_on:
       - api
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]   # remove if no GPU
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:latest
@@ -965,6 +1409,9 @@ services:
       - "3001:3000"
     depends_on:
       - prometheus
+
+volumes:
+  ollama_data:
 ```
 
 ### 6.2 CI/CD Pipeline
@@ -1066,11 +1513,18 @@ solar-sentinel/
 │   │   └── windows.py
 │   ├── nowcasting/
 │   │   ├── tcn_encoder.py
-│   │   └── train.py
+│   │   ├── train.py
+│   │   └── flaml_tuner.py        # FLAML auto-tuning
 │   ├── forecasting/
 │   │   ├── bilstm.py
 │   │   ├── ensemble.py
 │   │   └── lead_time.py
+│   ├── orchestration/             # LangGraph agent pipeline
+│   │   ├── state.py              # SolarPipelineState TypedDict
+│   │   ├── agents.py             # All agent node functions
+│   │   └── graph.py              # Graph builder + entry point
+│   ├── intelligence/              # LLM alert layer
+│   │   └── llm_reporter.py       # Phi-3-mini / Mistral via Ollama
 │   ├── evaluation/
 │   │   └── metrics.py
 │   └── api/
@@ -1081,22 +1535,27 @@ solar-sentinel/
 │   │   │   ├── LightCurve.tsx
 │   │   │   ├── AlertBanner.tsx
 │   │   │   ├── FlareCatalogue.tsx
-│   │   │   └── ForecastGauge.tsx
+│   │   │   ├── ForecastGauge.tsx
+│   │   │   └── LLMReport.tsx     # LLM bulletin display component
 │   │   └── App.tsx
 │   └── package.json
 ├── notebooks/
 │   ├── 01_eda_fits_exploration.ipynb
 │   ├── 02_feature_engineering.ipynb
 │   ├── 03_nowcasting_prototype.ipynb
-│   └── 04_forecasting_prototype.ipynb
+│   ├── 04_forecasting_prototype.ipynb
+│   └── 05_langgraph_pipeline_test.ipynb
 ├── models/
 │   ├── tcn_encoder.pt
-│   ├── xgb_nowcast.json
+│   ├── xgb_nowcast.json          # FLAML-tuned XGBoost
 │   ├── bilstm_forecaster.pt
 │   └── tcn_forecaster.pt
+├── logs/
+│   └── flaml_nowcast.log         # FLAML search history
 ├── configs/
 │   ├── nowcasting.yaml
-│   └── forecasting.yaml
+│   ├── forecasting.yaml
+│   └── llm.yaml                  # Ollama model + prompt config
 ├── tests/
 │   └── test_pipeline.py
 ├── docker/
@@ -1132,6 +1591,11 @@ solar-sentinel/
 - PRADAN Data Portal — ISSDC: https://pradan.issdc.gov.in
 - NOAA SWPC Flare Catalog: https://ftp.swpc.noaa.gov/pub/indices/events/
 - SunPy Documentation: https://sunpy.org
+- LangGraph Documentation: https://langchain-ai.github.io/langgraph/
+- FLAML AutoML — Microsoft: https://microsoft.github.io/FLAML/
+- Phi-3-mini — Microsoft: https://huggingface.co/microsoft/Phi-3-mini-4k-instruct
+- Mistral 7B: https://huggingface.co/mistralai/Mistral-7B-v0.1
+- Ollama (local LLM runtime): https://ollama.com
 - Baldi et al. (2021) — Solar Flare Prediction with CNNs
 - Ahmadzadeh et al. (2021) — How to Train a Flare Forecasting Model
 
