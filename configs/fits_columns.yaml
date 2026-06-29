@@ -1,0 +1,3 @@
+# STOP — do not edit values below until you have run:
+# python scripts/verify_fits_columns.py path/to/solexs.fits path/to/hel1os.fits
+# Every pipeline failure traces back to wrong column names here.

@@ -1,0 +1,10 @@
+phase_detector:
+  peak_frac_pre: 0.30
+  peak_frac_gradual: 0.80
+  background_sigma: 0.10
+class_thresholds:
+  C: 0.38
+  M: 0.45
+  X: 0.28
+  binary: 0.40
+dead_time_us: 2.5

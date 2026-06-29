@@ -1,0 +1,9 @@
+.env
+data/raw/
+models/*.pt
+models/*.onnx
+models/*.pkl
+models/*.json
+data/graphrag/output/
+__pycache__/
+logs/

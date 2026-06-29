@@ -1,0 +1,6 @@
+latency_p99_seconds: 90
+throughput_cadence_s: 60
+availability_pct: 99.0
+lead_time_min_accepted: 10
+lead_time_min_target: 30
+far_max: 0.10
