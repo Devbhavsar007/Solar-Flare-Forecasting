@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+websockets
+python-dotenv
+pandas==2.3.3
+prometheus-client==0.25.0
+PyYAML==6.0.3
