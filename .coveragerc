@@ -1,0 +1,10 @@
+[run]
+omit =
+    src/*/migrations/*
+    src/monitoring/metrics.py
+    src/ingestion/schemas.py
+
+[report]
+exclude_lines =
+    if __name__ == .__main__.:
+    raise NotImplementedError

@@ -1,0 +1,170 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red",   "value": 90 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "tooltip": { "mode": "single" } },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "histogram_quantile(0.99, rate(solar_inference_duration_seconds_bucket[5m]))",
+        "legendFormat": "P99 latency"
+      }],
+      "title": "SLO-1 End-to-End Latency P99 (red = >90s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 1 } } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": "Prometheus",
+          "expr": "rate(solar_alert_total{flare_class='C'}[5m])",
+          "legendFormat": "C-class" },
+        { "datasource": "Prometheus",
+          "expr": "rate(solar_alert_total{flare_class='M'}[5m])",
+          "legendFormat": "M-class" },
+        { "datasource": "Prometheus",
+          "expr": "rate(solar_alert_total{flare_class='X'}[5m])",
+          "legendFormat": "X-class" }
+      ],
+      "title": "Alert Rate by Flare Class",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 120 },
+              { "color": "red",    "value": 180 }
+            ]
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 8 },
+      "id": 3,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "solar_data_freshness_seconds",
+        "legendFormat": "Data freshness"
+      }],
+      "title": "SLO-2 Data Freshness (red = >180s)",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "orange", "value": 0.07 },
+              { "color": "red",    "value": 0.10 }
+            ]
+          },
+          "max": 0.3, "min": 0
+        }
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 8 },
+      "id": 4,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "solar_far_latest",
+        "legendFormat": "FAR"
+      }],
+      "title": "SLO-5 False Alarm Rate (red = >0.10)",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "orange", "value": 10 },
+              { "color": "green",  "value": 30 }
+            ]
+          },
+          "unit": "m", "min": 0
+        }
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 8 },
+      "id": 5,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "solar_lead_time_minutes",
+        "legendFormat": "Lead time"
+      }],
+      "title": "SLO-4 Lead Time (green = >30min)",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",   "value": null },
+              { "color": "green", "value": 0.99 }
+            ]
+          },
+          "max": 1, "min": 0, "unit": "percentunit"
+        }
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 8 },
+      "id": 6,
+      "options": { "reduceOptions": { "calcs": ["mean"] } },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "avg_over_time(probe_success{job='solar-sentinel-api'}[24h])",
+        "legendFormat": "24h availability"
+      }],
+      "title": "SLO-3 Availability 24h avg (green = >99%)",
+      "type": "gauge"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["solar-sentinel", "slo"],
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "utc",
+  "title": "SolarSentinel — SLO Dashboard",
+  "uid": "solar-sentinel-slo-v1",
+  "version": 1
+}

@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'solar-sentinel-api'
+    static_configs:
+      - targets: ['api:8000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  - job_name: 'solar-sentinel-probe'
+    static_configs:
+      - targets: ['api:8000']
+    metrics_path: /health
+    scrape_interval: 30s

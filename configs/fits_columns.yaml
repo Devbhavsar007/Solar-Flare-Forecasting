@@ -1,3 +1,29 @@
-# STOP — do not edit values below until you have run:
-# python scripts/verify_fits_columns.py path/to/solexs.fits path/to/hel1os.fits
-# Every pipeline failure traces back to wrong column names here.
+# configs/fits_columns.yaml
+# Populated from scripts/verify_fits_columns.py on real PRADAN files.
+# DO NOT guess column names. Every pipeline failure traces back to wrong names here.
+
+# --- SoLEXS (AL1_SOLEXS SDD2 lightcurve) ---
+# Source: AL1_SOLEXS_20260630_SDD2_L1.lc.gz
+# HDU 1 "RATE": 86400 rows, 2 columns [D, D]
+# SDD1 has no lightcurve file (only .gti.gz). SDD2 is the primary data source.
+solexs:
+  time_col: "TIME"
+  counts_col: "COUNTS"
+  binary_table_ext: 1
+
+# --- HEL1OS (CdTe lightcurves) ---
+# Source: lightcurve_cdte1.fits
+# Each energy band lives in a separate HDU extension.
+# HDU 1: CDTE1_LC_BAND_5.00KEV_TO_20.00KEV  (43196 rows, cols: MJD, ISOT, CTR, STAT_ERR)
+# HDU 2: CDTE1_LC_BAND_20.00KEV_TO_30.00KEV
+# HDU 3: CDTE1_LC_BAND_30.00KEV_TO_40.00KEV
+# HDU 4: CDTE1_LC_BAND_40.00KEV_TO_60.00KEV
+# HDU 5: CDTE1_LC_BAND_1.80KEV_TO_90.00KEV  (broadband)
+hel1os:
+  time_col: "MJD"
+  counts_low:
+    ext: 1   # 5-20 keV
+    col: "CTR"
+  counts_high:
+    ext: 4   # 40-60 keV
+    col: "CTR"

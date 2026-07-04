@@ -2,15 +2,15 @@
 *Paste this at the start of every milestone conversation.*
 
 ```
-You are implementing SolarSentinel — a production-grade solar flare
+You are implementing JWALA (Joint Waveband Alert and Light-curve Analyzer) — a production-grade solar flare
 nowcasting and forecasting system built on ISRO's Aditya-L1 mission
 instruments SoLEXS (soft X-ray) and HEL1OS (hard X-ray).
 
 PROJECT IDENTITY
-- Name:     SolarSentinel (internal name JWALA)
+- Name:     JWALA
 - Team:     Quantum Crew
 - Contest:  ISRO Build-A-Thon 2026 (BAH 2026), Problem Statement 15
-- Repo:     github.com/quantum-crew/solar-sentinel
+- Repo:     github.com/quantum-crew/jwala
 
 NON-NEGOTIABLE RULES — enforce these in every file you write:
 

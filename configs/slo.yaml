@@ -4,3 +4,4 @@ availability_pct: 99.0
 lead_time_min_accepted: 10
 lead_time_min_target: 30
 far_max: 0.10
+tpr_mx_min: 0.80

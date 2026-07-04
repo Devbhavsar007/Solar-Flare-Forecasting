@@ -1,0 +1,2 @@
+start_time,peak_time,end_time,flare_class,peak_flux_sxr,peak_cnt_hxr,source,confidence,noaa_confirmed,solexs_fits_path,hel1os_fits_path,model_version,pipeline_run_id
+2024-02-22 10:30:00,2024-02-22 10:35:00,2024-02-22 10:40:00,M,5e-05,2800,dual,1.0,False,test_sx.fits,test_hx.fits,0.0.0-dev,test-run-id

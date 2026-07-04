@@ -1,0 +1,13 @@
+embeddings:
+  async_mode: threaded
+  llm:
+    api_base: http://localhost:11434/v1
+    api_key: ${GRAPHRAG_API_KEY}
+    model: nomic-embed-text
+    type: openai_embedding
+llm:
+  api_base: http://localhost:11434/v1
+  api_key: ${GRAPHRAG_API_KEY}
+  model: phi3:mini
+  model_supports_json: true
+  type: openai_chat

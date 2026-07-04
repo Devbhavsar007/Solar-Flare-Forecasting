@@ -3,3 +3,10 @@ repos:
     rev: v8.18.2
     hooks:
       - id: gitleaks
+  - repo: local
+    hooks:
+      - id: seed-check
+        name: Check SEED=42 in training scripts
+        entry: bash -c 'for f in "$@"; do if ! grep -q "^SEED = 42$" "$f"; then echo "Missing SEED=42 in $f"; exit 1; fi; done' --
+        language: system
+        files: ^src/(nowcasting/train|forecasting/multi_horizon|forecasting/causal_lstm|automl/flaml_tuner|physics/pinn)\.py$

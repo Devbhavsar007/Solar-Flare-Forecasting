@@ -7,3 +7,8 @@ models/*.json
 data/graphrag/output/
 __pycache__/
 logs/
+
+*.db
+data/canary/
+
+.venv/
