@@ -41,6 +41,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── WebSocket caps [T-3] ──────────────────────────────────────
+MAX_CONNECTIONS = 20
+_active_ws: set[WebSocket] = set()
+
 # ── In-memory state (populated by pipeline runs) ─────────────
 _latest_state: dict = {
     "timing": {},
@@ -72,13 +76,33 @@ async def history(n: int = 50):
 
     catalogue_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
-        "..", "..", "data", "master_catalogue.csv",
+        "..", "..", "data", "processed", "master_catalogue.csv",
     )
     try:
         df = pd.read_csv(catalogue_path).tail(n)
         return JSONResponse(content=df.to_dict(orient="records"))
     except FileNotFoundError:
         return JSONResponse(content=[], status_code=200)
+
+
+@app.get("/evaluation")
+async def evaluation():
+    """Return walk-forward eval metrics if available — never fabricate."""
+    eval_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "..", "data", "processed", "eval_metrics.json",
+    )
+    try:
+        import json as _j
+        with open(eval_path) as f:
+            data = _j.load(f)
+        data["available"] = True
+        return JSONResponse(content=data)
+    except (FileNotFoundError, ValueError):
+        return JSONResponse(content={
+            "available": False,
+            "message": "No evaluation data found. Run walk_forward.py to generate eval_metrics.json."
+        })
 
 
 @app.get("/explain")

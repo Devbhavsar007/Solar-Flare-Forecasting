@@ -88,3 +88,33 @@ def compute_lead_time(forecast_proba_series: pd.Series, actual_flare_times: pd.S
             lead_times.append(np.nan)
             
     return lead_times
+
+
+def export_eval_metrics(aggregated: Dict[str, Any], lead_times: List[float] = None, output_dir: str = None) -> None:
+    """
+    Dump walk-forward evaluation metrics to data/processed/eval_metrics.json
+    so the /evaluation API endpoint and Analytics dashboard page can consume them.
+    """
+    import json
+    import os
+
+    if output_dir is None:
+        output_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "processed"
+        )
+    os.makedirs(output_dir, exist_ok=True)
+
+    mean_lead = float(np.nanmean(lead_times)) if lead_times and len(lead_times) > 0 else None
+
+    payload = {
+        "tss": float(aggregated.get("mean_tss", 0)),
+        "far": float(aggregated.get("mean_far", 0)),
+        "tpr": float(aggregated.get("mean_tpr", 0)),
+        "ppv": float(aggregated.get("mean_ppv", 0)),
+        "tnr": float(aggregated.get("mean_tnr", 0)),
+        "mean_lead_min": mean_lead,
+    }
+
+    out_path = os.path.join(output_dir, "eval_metrics.json")
+    with open(out_path, "w") as f:
+        json.dump(payload, f, indent=2)
