@@ -1,13 +1,13 @@
-# ☀️ SolarSentinel — Solar Flare Nowcasting & Forecasting
+# ☀️ JWALA — Solar Flare Nowcasting & Forecasting
 
-SolarSentinel is an advanced full-stack application designed for automated solar flare detection, classification, and prediction. It leverages data from instruments like ISRO's Aditya-L1 SoLEXS and HEL1OS, merging them with advanced machine learning, physics-informed models, and LLM-driven intelligence.
+JWALA is an advanced full-stack application designed for automated solar flare detection, classification, and prediction. It leverages data from instruments like ISRO's Aditya-L1 SoLEXS and HEL1OS, merging them with advanced machine learning, physics-informed models, and LLM-driven intelligence.
 
-[![CI](https://github.com/quantum-crew/solar-sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/quantum-crew/solar-sentinel/actions)
+[![CI](https://github.com/quantum-crew/jwala/actions/workflows/ci.yml/badge.svg)](https://github.com/quantum-crew/jwala/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Current Features & Functionality
 
-SolarSentinel is built as a highly modular, scalable, and production-ready system with the following active capabilities:
+JWALA is built as a highly modular, scalable, and production-ready system with the following active capabilities:
 
 ### 1. Data Ingestion & Preprocessing (`src/ingestion/`, `src/preprocessing/`)
 - **Multi-Source Data Pipelines**: Automated downloading and FITS file reading for SoLEXS, HEL1OS, and GOES XRS data.
@@ -59,8 +59,8 @@ A responsive and fast Vite + React dashboard featuring:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/quantum-crew/solar-sentinel.git
-   cd solar-sentinel
+   git clone https://github.com/quantum-crew/jwala.git
+   cd jwala
    ```
 
 2. **Backend Setup:**
