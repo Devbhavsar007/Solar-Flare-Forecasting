@@ -21,11 +21,9 @@ import pandas as pd
 from sklearn.metrics import recall_score, f1_score
 import xgboost as xgb
 
-from src.nowcasting.tcn_encoder import TCNEncoder
 from src.nowcasting.train import (
     train_multiclass_nowcast, 
-    optimize_per_class_thresholds, 
-    extract_tcn_features
+    optimize_per_class_thresholds
 )
 from src.preprocessing.cross_calibration import fit_goes_solexs_calibration, apply_goes_calibration
 from src.preprocessing.labels import build_multiclass_labels, create_windows
@@ -46,7 +44,7 @@ def get_real_data():
     noaa_path = "data/raw/noaa_catalog.parquet"
     if not os.path.exists(noaa_path):
         print("NOAA catalog not found. Downloading...")
-        master_catalogue = download_noaa_catalog(start_year=2010, end_year=2024, out_path=noaa_path)
+        master_catalogue = download_noaa_catalog(start_year=2023, end_year=2024, out_path=noaa_path)
     else:
         master_catalogue = pd.read_parquet(noaa_path)
         
@@ -77,21 +75,40 @@ def get_real_data():
     else:
         print(f"Found GOES files: {goes_files}. Loading...")
         goes_df = pd.concat([pd.read_parquet(f) for f in goes_files]).sort_index()
+        if goes_df.index.tzinfo is None:
+            goes_df.index = goes_df.index.tz_localize("UTC")
 
     # Preprocessing: Calibration Fix
     print("Applying cross-calibration for GOES 13-15 science-quality data...")
-    # Mocking SoLEXS DF to fit calibration
-    solexs_df = goes_df.copy()
-    solexs_df.columns = ["solexs_a", "flux_high"]
-    
-    try:
-        calib = fit_goes_solexs_calibration(goes_df, solexs_df)
-        goes_df["xrs_b_calibrated"] = apply_goes_calibration(goes_df["xrs_b"].values, calib)
-    except Exception as e:
-        print(f"Calibration fitting skipped/failed ({e}). Using raw flux.")
+    solexs_files = glob.glob("data/raw/pradan_download/*solexs*.fits")
+    if not solexs_files:
+        print("WARNING: No SoLEXS FITS files found in data/raw/pradan_download/.")
+        print("Skipping cross-calibration loudly. The model will train on raw GOES flux.")
         goes_df["xrs_b_calibrated"] = goes_df["xrs_b"]
-        
-    goes_df["xrs_a_calibrated"] = goes_df["xrs_a"] # Dummy calib for a
+        goes_df["xrs_a_calibrated"] = goes_df["xrs_a"]
+        calib = {"slope": 1.0, "intercept": 0.0, "r2": 1.0, "n_samples": 0}
+    else:
+        from src.ingestion.fits_reader import read_solexs
+        solexs_df = pd.concat([read_solexs(f) for f in solexs_files]).sort_index()
+        try:
+            calib = fit_goes_solexs_calibration(goes_df, solexs_df)
+            goes_df["xrs_b_calibrated"] = apply_goes_calibration(goes_df["xrs_b"].values, calib)
+            goes_df["xrs_a_calibrated"] = goes_df["xrs_a"]
+        except Exception as e:
+            print(f"Calibration fitting failed ({e}). Using raw flux.")
+            goes_df["xrs_b_calibrated"] = goes_df["xrs_b"]
+            goes_df["xrs_a_calibrated"] = goes_df["xrs_a"]
+            calib = {"slope": 1.0, "intercept": 0.0, "r2": 1.0, "n_samples": 0}
+
+    # Save calibration to configs
+    try:
+        with open("configs/nowcasting.yaml", "r") as f:
+            cfg = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        cfg = {}
+    cfg["goes_calibration"] = calib
+    with open("configs/nowcasting.yaml", "w") as f:
+        yaml.dump(cfg, f)
 
     print("Building multi-class labels...")
     goes_df = build_multiclass_labels(goes_df, master_catalogue)
@@ -146,12 +163,10 @@ def main():
         print("Not enough data to train. Exiting.")
         return
 
-    # 3. Extract Features
-    # Note: We must ensure input_dim matches feature_cols length
-    encoder = TCNEncoder(input_dim=X_tr.shape[2], num_channels=[16, 32, 64], kernel_size=3, dropout=0.2)
-    tcn_tr = extract_tcn_features(encoder, X_tr)
-    tcn_val = extract_tcn_features(encoder, X_val)
-    tcn_test = extract_tcn_features(encoder, X_test)
+    # 3. Features (TCN is untrained and thus dropped to prevent feeding noise)
+    tcn_tr = np.empty((len(X_tr), 0))
+    tcn_val = np.empty((len(X_val), 0))
+    tcn_test = np.empty((len(X_test), 0))
     
     # 4. Train Model (Handles class weighting internally; NO oversampling)
     print("\nTraining Multi-class Nowcaster...")

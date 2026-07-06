@@ -129,8 +129,12 @@ def train_multiclass_nowcast(
 
     # Per-class F1
     y_pred = model.predict(combined_val)
+    if y_pred.ndim > 1:
+        y_pred = y_pred.argmax(axis=1)
     for cls_idx, cls_name in enumerate(["N", "C", "M", "X"]):
-        f1 = f1_score(y_val == cls_idx, y_pred == cls_idx, zero_division=0.0)
+        y_val_bin = (np.array(y_val) == cls_idx).astype(int).ravel()
+        y_pred_bin = (np.array(y_pred) == cls_idx).astype(int).ravel()
+        f1 = f1_score(y_val_bin, y_pred_bin, zero_division=0.0)
         print(f"  F1({cls_name}): {f1:.4f}")
 
     # [RULE-13] Save in BOTH formats

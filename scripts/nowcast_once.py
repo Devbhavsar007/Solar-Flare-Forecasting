@@ -33,12 +33,15 @@ def fetch_telemetry():
         from sunpy.timeseries import TimeSeries
         
         end = datetime.now(timezone.utc)
-        start = end - timedelta(hours=2)
+        start = end - timedelta(hours=6)
+        start_str = start.strftime("%Y-%m-%d %H:%M:%S")
+        end_str = end.strftime("%Y-%m-%d %H:%M:%S")
         
         result = Fido.search(
-            a.Time(start, end),
-            a.Instrument("XRS"),
-            a.goes.Resolution("flx1m")
+            a.Time(start_str, end_str),
+            a.Instrument.xrs,
+            a.Resolution("avg1m"),
+            a.goes.SatelliteNumber(16)
         )
         if len(result) > 0:
             downloaded = Fido.fetch(result)
@@ -47,14 +50,26 @@ def fetch_telemetry():
                 df = ts.to_dataframe()
                 df = df.dropna(subset=['xrsa', 'xrsb'], how='all')
                 df = df.resample('1min').mean()
+                
+                # Get the most recent complete 60-minute chunk
                 if len(df) >= 60:
-                    # Take last 60 minutes
                     df = df.tail(60)
-                    # Return shape (1, 60, 4) where features are [xrsa_calib, xrsb_calib, xrsa, xrsb]
-                    # We will mock the calibration for now since we don't have the fit loaded
+                    
+                    # Load calibration
+                    calib = {"slope": 1.0, "intercept": 0.0}
+                    try:
+                        import yaml
+                        with open("configs/nowcasting.yaml", "r") as f:
+                            cfg = yaml.safe_load(f) or {}
+                            if "goes_calibration" in cfg:
+                                calib = cfg["goes_calibration"]
+                    except FileNotFoundError:
+                        pass
+                        
+                    from src.preprocessing.cross_calibration import apply_goes_calibration
                     arr = np.zeros((1, 60, 4))
-                    arr[0, :, 0] = df['xrsa'].values
-                    arr[0, :, 1] = df['xrsb'].values
+                    arr[0, :, 0] = df['xrsa'].values # A uses raw as calibrated
+                    arr[0, :, 1] = apply_goes_calibration(df['xrsb'].values, calib)
                     arr[0, :, 2] = df['xrsa'].values
                     arr[0, :, 3] = df['xrsb'].values
                     return arr
@@ -65,18 +80,13 @@ def fetch_telemetry():
     # If we couldn't fetch real data, we MUST return None to prevent fabricating alerts.
     return None
 
-def run_inference(model, encoder, X_window):
+def run_inference(model, X_window):
     """
     Run the multi-class nowcaster and compute SHAP values.
     """
     # X_window is (1, 60, 4)
-    # We need to extract TCN features first
-    from src.nowcasting.train import extract_tcn_features
-    try:
-        tcn_feats = extract_tcn_features(encoder, X_window)
-    except Exception as e:
-        print(f"Error extracting TCN features: {e}")
-        return None
+    # TCN feature is untrained and dropped to prevent feeding noise.
+    tcn_feats = np.empty((1, 0))
         
     flat_window = X_window.reshape(len(X_window), -1)
     combined = np.concatenate([tcn_feats, flat_window], axis=1)
@@ -110,7 +120,6 @@ def run_inference(model, encoder, X_window):
         # Simplify SHAP for payload
         shap_payload = {
             "flux_recent": float(np.mean(shap_vals[0][:, -4:])),
-            "tcn_feature_0": float(np.mean(shap_vals[0][:, 0])),
         }
     except Exception as e:
         print(f"SHAP explanation failed: {e}")
@@ -127,14 +136,11 @@ def run_inference(model, encoder, X_window):
 
 def main():
     api_url = os.environ.get("RENDER_API_URL", "http://localhost:8000")
-    api_key = os.environ.get("X_NOWCAST_KEY", "dev-secret-key")
+    api_key = os.environ.get("X_NOWCAST_KEY", "")
     
     print("Loading models...")
     try:
         model = joblib.load("models/xgb_multiclass.pkl")
-        from src.nowcasting.tcn_encoder import TCNEncoder
-        encoder = TCNEncoder(input_dim=4, num_channels=[16, 32, 64], kernel_size=3, dropout=0.2)
-        # Note: in real production we would load encoder weights too
     except Exception as e:
         print(f"Error loading models: {e}. Exiting.")
         return
@@ -149,7 +155,7 @@ def main():
         return
         
     print("Running inference...")
-    result_payload = run_inference(model, encoder, telemetry)
+    result_payload = run_inference(model, telemetry)
     
     if result_payload is None:
         print("Inference failed. Skipping POST.")

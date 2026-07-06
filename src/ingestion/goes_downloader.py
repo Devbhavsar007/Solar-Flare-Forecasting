@@ -22,8 +22,9 @@ def download_goes_xrs(start_date: str, end_date: str, output_dir: str = "data/ra
     print(f"Fetching GOES XRS data from {start_date} to {end_date}...")
     result = Fido.search(
         a.Time(start_date, end_date),
-        a.Instrument("XRS"),
-        a.goes.Resolution("flx1m")
+        a.Instrument.xrs,
+        a.Resolution("avg1m"),
+        a.goes.SatelliteNumber(16),
     )
     
     if len(result) == 0:
