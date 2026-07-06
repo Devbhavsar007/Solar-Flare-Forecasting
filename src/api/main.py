@@ -146,8 +146,15 @@ async def status():
     }
 
 
-_NOWCAST_KEY = os.getenv("X_NOWCAST_KEY", "dev-secret-key")
+_NOWCAST_KEY = os.getenv("X_NOWCAST_KEY")
+if not _NOWCAST_KEY:
+    print("WARNING: X_NOWCAST_KEY is not set. The /alert endpoint will be inaccessible.")
+    # We assign a random impossible key to fail closed.
+    import secrets
+    _NOWCAST_KEY = secrets.token_hex(32)
 
+
+import json
 
 @app.post("/alert")
 async def alert(request: Request):
@@ -162,7 +169,7 @@ async def alert(request: Request):
 
     payload = await request.json()
     _latest_state["last_alert"] = payload
-    message = str(payload)
+    message = json.dumps(payload)
     disconnected = set()
     for ws in _active_ws.copy():
         try:
@@ -173,22 +180,18 @@ async def alert(request: Request):
     return {"status": "broadcast", "recipients": len(_active_ws)}
 
 
-import json as _json
 import pandas as pd
-
-_LAST_NOWCAST: dict = {"class": "N", "confidence": 0.0}
-_LAST_FORECAST: dict = {"h15": [0, 0, 0, 0]}
-_LAST_ALERT: dict | None = None
-
 
 def get_latest_state() -> dict:
     """Assemble the current pipeline state snapshot for WebSocket push."""
+    alert = _latest_state.get("last_alert")
+    
     return {
         "ts":              pd.Timestamp.utcnow().isoformat(),
-        "nowcast_class":   _LAST_NOWCAST.get("class", "N"),
-        "confidence":      _LAST_NOWCAST.get("confidence", 0.0),
-        "forecast_15min":  _LAST_FORECAST.get("h15", [0, 0, 0, 0]),
-        "alert":           _LAST_ALERT,
+        "nowcast_class":   alert.get("flare_class", "N") if alert else "N",
+        "confidence":      alert.get("confidence", 0.0) if alert else 0.0,
+        "forecast_15min":  alert.get("forecast", {}).get("h15", [0, 0, 0, 0]) if alert else [0, 0, 0, 0],
+        "alert":           alert,
     }
 
 
@@ -219,7 +222,7 @@ async def live_feed(websocket: WebSocket):
                 now = time.time()
                 if now - last_msg_time < 10:           # rate limit [T-3]
                     await websocket.send_text(
-                        _json.dumps({"error": "rate_limit",
+                        json.dumps({"error": "rate_limit",
                                     "msg":   "1 message per 10s"}))
                     await websocket.close(code=1008)
                     break

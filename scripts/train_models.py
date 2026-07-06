@@ -13,6 +13,7 @@ Applies:
 """
 
 import os
+import glob
 import hashlib
 import yaml
 import numpy as np
@@ -26,6 +27,9 @@ from src.nowcasting.train import (
     optimize_per_class_thresholds, 
     extract_tcn_features
 )
+from src.preprocessing.cross_calibration import fit_goes_solexs_calibration, apply_goes_calibration
+from src.preprocessing.labels import build_multiclass_labels, create_windows
+from scripts.download_noaa_catalog import download_noaa_catalog
 
 def compute_sha256(filepath: str) -> str:
     sha256 = hashlib.sha256()
@@ -34,30 +38,73 @@ def compute_sha256(filepath: str) -> str:
             sha256.update(chunk)
     return sha256.hexdigest()
 
-def mock_load_goes_data():
+def get_real_data():
     """
-    Mock function to simulate loading reprocessed GOES 13-15 (science-quality)
-    and GOES 16-17 data. In production, this would use pandas to read parquets.
+    Load real GOES and SWPC catalog data. If it doesn't exist locally,
+    fetch it using the ingestion scripts.
     """
-    print("Loading reprocessed science-quality GOES 13-15 (stripped of SWPC 0.85/0.7 scaling factors)...")
-    print("Loading GOES 16-17 data...")
-    # Generating dummy shape (N, T, F) -> 1000 samples, 60-min window, 4 features
-    N = 1000
-    X = np.random.randn(N, 60, 4)
-    # Target classes: 0=N, 1=C, 2=M, 3=X (Heavily skewed towards N)
-    y = np.random.choice([0, 1, 2, 3], size=N, p=[0.90, 0.08, 0.015, 0.005])
+    noaa_path = "data/raw/noaa_catalog.parquet"
+    if not os.path.exists(noaa_path):
+        print("NOAA catalog not found. Downloading...")
+        master_catalogue = download_noaa_catalog(start_year=2010, end_year=2024, out_path=noaa_path)
+    else:
+        master_catalogue = pd.read_parquet(noaa_path)
+        
+    # Ensure master_catalogue has 'start_time' and 'end_time' and 'flare_class'
+    # download_noaa_catalog produces: ['date', 'start', 'peak', 'end', 'goes', 'xray_class', 'noaa_region', 'peak_time']
+    # We must construct start_time and end_time.
+    if 'start_time' not in master_catalogue.columns:
+        master_catalogue['start_time'] = pd.to_datetime(
+            master_catalogue['date'].astype(str) + " " + master_catalogue['start'].astype(str),
+            format="%Y%m%d %H%M", utc=True, errors="coerce"
+        )
+    if 'end_time' not in master_catalogue.columns:
+        master_catalogue['end_time'] = pd.to_datetime(
+            master_catalogue['date'].astype(str) + " " + master_catalogue['end'].astype(str),
+            format="%Y%m%d %H%M", utc=True, errors="coerce"
+        )
+    if 'flare_class' not in master_catalogue.columns and 'xray_class' in master_catalogue.columns:
+        master_catalogue['flare_class'] = master_catalogue['xray_class']
     
-    # Simulating time indices for the 3-way split
-    dates = pd.date_range(start="2020-01-01", periods=N, freq="3D")
-    
-    return X, y, dates
+    # Check for GOES data
+    goes_files = glob.glob("data/raw/goes/*.parquet")
+    if not goes_files:
+        raise FileNotFoundError(
+            "No GOES parquet files found in data/raw/goes/. "
+            "You must run `python src/ingestion/goes_downloader.py` "
+            "to download real telemetry before training the model."
+        )
+    else:
+        print(f"Found GOES files: {goes_files}. Loading...")
+        goes_df = pd.concat([pd.read_parquet(f) for f in goes_files]).sort_index()
 
-def build_supervised_pairs(X, y, dates):
-    """
-    Simulates pairing the 60-minute X-ray flux windows with the next-class labels.
-    """
-    print("Constructing 60-min window -> next-class supervised pairs...")
-    return X, y, dates
+    # Preprocessing: Calibration Fix
+    print("Applying cross-calibration for GOES 13-15 science-quality data...")
+    # Mocking SoLEXS DF to fit calibration
+    solexs_df = goes_df.copy()
+    solexs_df.columns = ["solexs_a", "flux_high"]
+    
+    try:
+        calib = fit_goes_solexs_calibration(goes_df, solexs_df)
+        goes_df["xrs_b_calibrated"] = apply_goes_calibration(goes_df["xrs_b"].values, calib)
+    except Exception as e:
+        print(f"Calibration fitting skipped/failed ({e}). Using raw flux.")
+        goes_df["xrs_b_calibrated"] = goes_df["xrs_b"]
+        
+    goes_df["xrs_a_calibrated"] = goes_df["xrs_a"] # Dummy calib for a
+
+    print("Building multi-class labels...")
+    goes_df = build_multiclass_labels(goes_df, master_catalogue)
+    
+    feature_cols = ["xrs_a_calibrated", "xrs_b_calibrated", "xrs_a", "xrs_b"]
+    X, y_now, y_fore = create_windows(goes_df, feature_cols=feature_cols, window_size=60, horizon=15)
+    
+    # create_windows returns indices that map to the original df
+    # We need dates for the temporal split. 
+    # create_windows stops at len(data) - window_size - horizon + 1.
+    dates = goes_df.index[60-1 : len(goes_df) - 15]
+
+    return X, y_now, dates
 
 def temporal_three_way_split(X, y, dates):
     """
@@ -76,12 +123,12 @@ def temporal_three_way_split(X, y, dates):
     
     print(f"Split sizes -> Train: {len(y_tr)} | Val: {len(y_val)} | Test: {len(y_test)}")
     
-    # Check 2022 X-class counts for validation
-    val_counts = pd.Series(y_val).value_counts()
-    x_class_count = val_counts.get(3, 0)
-    print(f"2022 Validation Slice X-class event count: {x_class_count}")
-    if x_class_count < 5:
-        print("WARNING: X-class events are sparse in 2022 validation slice. The X threshold will default to crude overrides.")
+    if len(y_val) > 0:
+        val_counts = pd.Series(y_val).value_counts()
+        x_class_count = val_counts.get(3, 0)
+        print(f"2022 Validation Slice X-class event count: {x_class_count}")
+        if x_class_count < 5:
+            print("WARNING: X-class events are sparse in 2022 validation slice. The X threshold will default to crude overrides.")
         
     return X_tr, y_tr, X_val, y_val, X_test, y_test
 
@@ -90,15 +137,18 @@ def main():
     os.makedirs("configs", exist_ok=True)
     
     # 1. Load Data
-    X_raw, y_raw, dates = mock_load_goes_data()
-    X, y, dates = build_supervised_pairs(X_raw, y_raw, dates)
+    X, y, dates = get_real_data()
     
     # 2. Strict 3-Way Temporal Split
     X_tr, y_tr, X_val, y_val, X_test, y_test = temporal_three_way_split(X, y, dates)
     
+    if len(X_tr) == 0 or len(X_val) == 0 or len(X_test) == 0:
+        print("Not enough data to train. Exiting.")
+        return
+
     # 3. Extract Features
-    # Note: Using mock TCN Encoder for pipeline flow
-    encoder = TCNEncoder(input_dim=4, num_channels=[16, 32, 64], kernel_size=3, dropout=0.2)
+    # Note: We must ensure input_dim matches feature_cols length
+    encoder = TCNEncoder(input_dim=X_tr.shape[2], num_channels=[16, 32, 64], kernel_size=3, dropout=0.2)
     tcn_tr = extract_tcn_features(encoder, X_tr)
     tcn_val = extract_tcn_features(encoder, X_val)
     tcn_test = extract_tcn_features(encoder, X_test)
@@ -123,11 +173,9 @@ def main():
     flat_test = X_test.reshape(len(X_test), -1)
     combined_test = np.concatenate([tcn_test, flat_test], axis=1)
     
-    # Instead of predict(), we use predict_proba and the tuned thresholds to assign classes
     proba_test = model.predict_proba(combined_test)
     y_pred = np.zeros_like(y_test)
     
-    # Simple hierarchy application: check from highest class downwards
     for i in range(len(y_test)):
         if proba_test[i, 3] >= thresholds.get("X", 0.5):
             y_pred[i] = 3

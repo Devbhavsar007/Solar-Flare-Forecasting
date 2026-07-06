@@ -19,10 +19,12 @@ function alertLevel(fc: string): { level: string; label: string } {
   return { level: "LOW", label: "NOMINAL" };
 }
 
-function useIsStale(alert: { peak_time?: string } | null): boolean {
-  if (!alert?.peak_time) return false;
+function useIsStale(alert: { ts?: string, peak_time?: string } | null): boolean {
+  if (!alert) return false;
+  const timeStr = alert.ts || alert.peak_time;
+  if (!timeStr) return false;
   try {
-    const alertTime = new Date(alert.peak_time).getTime();
+    const alertTime = new Date(timeStr).getTime();
     return Date.now() - alertTime > STALE_THRESHOLD_MS;
   } catch {
     return false;
