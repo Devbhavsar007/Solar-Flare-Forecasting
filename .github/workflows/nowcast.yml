@@ -1,0 +1,38 @@
+name: Nowcast Inference (15-min cron)
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # Every 15 minutes (best-effort by GitHub Actions)
+  workflow_dispatch:
+
+jobs:
+  nowcast:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Cache pip packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run nowcast inference
+      env:
+        RENDER_API_URL: ${{ secrets.RENDER_API_URL }}
+        X_NOWCAST_KEY: ${{ secrets.X_NOWCAST_KEY }}
+      run: |
+        python scripts/nowcast_once.py

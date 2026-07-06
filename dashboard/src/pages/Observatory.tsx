@@ -1,4 +1,4 @@
-import { Shield, AlertTriangle } from "lucide-react";
+import { Shield, AlertTriangle, Clock } from "lucide-react";
 import { useLiveData } from "../context/LiveDataContext";
 import SunHero from "../components/SunHero";
 import FluxChart from "../components/FluxChart";
@@ -11,16 +11,29 @@ const CLASS_COLORS: Record<string, string> = {
   X: "var(--flare-x)",
 };
 
+const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+
 function alertLevel(fc: string): { level: string; label: string } {
   if (fc === "X") return { level: "HIGH", label: "X-CLASS ALERT" };
   if (fc === "M") return { level: "MODERATE", label: "M-CLASS WARNING" };
   return { level: "LOW", label: "NOMINAL" };
 }
 
+function useIsStale(alert: { peak_time?: string } | null): boolean {
+  if (!alert?.peak_time) return false;
+  try {
+    const alertTime = new Date(alert.peak_time).getTime();
+    return Date.now() - alertTime > STALE_THRESHOLD_MS;
+  } catch {
+    return false;
+  }
+}
+
 export default function Observatory() {
   const { alert, fluxData, forecast } = useLiveData();
   const fc = alert?.flare_class ?? "N";
   const { level, label } = alertLevel(fc);
+  const isStale = useIsStale(alert);
 
   const probs = forecast
     ? [
@@ -41,6 +54,25 @@ export default function Observatory() {
         instruments, with multi-horizon probability forecasts.
       </p>
 
+      {/* ── STALE DATA WARNING ─────────────────────────────── */}
+      {isStale && (
+        <div
+          className="honesty-note"
+          style={{
+            background: "rgba(255, 60, 60, 0.12)",
+            borderColor: "rgba(255, 60, 60, 0.4)",
+          }}
+        >
+          <AlertTriangle size={16} color="#ff4444" />
+          <span>
+            <strong>STALE DATA</strong> — The last alert is older than 30
+            minutes. The inference pipeline may have missed a cycle or telemetry
+            was unavailable. Data shown below may not reflect current solar
+            conditions.
+          </span>
+        </div>
+      )}
+
       <div className="honesty-note">
         <AlertTriangle size={16} />
         <span>
@@ -48,6 +80,16 @@ export default function Observatory() {
           and HEL1OS are disk-integrated spectrometers — they measure total
           flux, not spatially resolved imagery. No active-region boxes are
           drawn because no real data supports them.
+        </span>
+      </div>
+
+      {/* ── 15-min cadence disclosure ──────────────────────── */}
+      <div className="honesty-note" style={{ opacity: 0.7 }}>
+        <Clock size={16} />
+        <span>
+          System update cadence: <strong>every 15 minutes</strong> via GitHub
+          Actions (best-effort scheduling). GOES XRS native refresh is 1 min;
+          the 30-min staleness threshold allows for one missed cycle.
         </span>
       </div>
 

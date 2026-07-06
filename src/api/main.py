@@ -6,11 +6,12 @@ pipeline timing/SLO status, and a real-time WebSocket feed with
 strict connection cap and rate limiting [T-3].
 """
 import asyncio
+import hmac
 import os
 import time
 
 import yaml
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from src.utils.logging_config import configure_logging
 
@@ -56,8 +57,22 @@ _latest_state: dict = {
 
 @app.get("/health")
 async def health():
-    """Health check returning model version and environment."""
-    return {"status": "ok", "model_version": _MODEL_VERSION, "env": _ENV}
+    """Health check returning model version, environment, and staleness."""
+    last_alert = _latest_state.get("last_alert")
+    age_seconds = None
+    if last_alert and isinstance(last_alert, dict) and "ts" in last_alert:
+        try:
+            from datetime import datetime, timezone
+            alert_time = datetime.fromisoformat(last_alert["ts"].replace("Z", "+00:00"))
+            age_seconds = (datetime.now(timezone.utc) - alert_time).total_seconds()
+        except (ValueError, TypeError):
+            age_seconds = None
+    return {
+        "status": "ok",
+        "model_version": _MODEL_VERSION,
+        "env": _ENV,
+        "last_alert_age_seconds": age_seconds,
+    }
 
 
 @app.get("/metrics")
@@ -131,9 +146,21 @@ async def status():
     }
 
 
+_NOWCAST_KEY = os.getenv("X_NOWCAST_KEY", "dev-secret-key")
+
+
 @app.post("/alert")
-async def alert(payload: dict):
-    """Broadcast a nowcast/forecast alert to all WebSocket subscribers."""
+async def alert(request: Request):
+    """Broadcast a nowcast/forecast alert to all WebSocket subscribers.
+
+    Secured with X-Nowcast-Key header using hmac.compare_digest
+    to prevent timing side-channel attacks.
+    """
+    provided_key = request.headers.get("X-Nowcast-Key", "")
+    if not hmac.compare_digest(provided_key, _NOWCAST_KEY):
+        raise HTTPException(status_code=403, detail="Invalid or missing X-Nowcast-Key")
+
+    payload = await request.json()
     _latest_state["last_alert"] = payload
     message = str(payload)
     disconnected = set()
