@@ -62,7 +62,11 @@ def _fetch_hek_flares(start_year: int, end_year: int) -> pd.DataFrame:
     client = hek.HEKClient()
     frames = []
 
-    for date_range in [("2021-12-01", "2021-12-05"), ("2022-12-01", "2022-12-05"), ("2023-12-01", "2024-01-01")]:
+    date_ranges = []
+    for y in range(start_year, end_year + 1):
+        date_ranges.append((f"{y}-01-01", f"{y+1}-01-01"))
+
+    for date_range in date_ranges:
         try:
             print(f"Querying HEK for {date_range[0]} to {date_range[1]}...")
             result = client.search(

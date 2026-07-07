@@ -44,7 +44,7 @@ def get_real_data():
     noaa_path = "data/raw/noaa_catalog.parquet"
     if not os.path.exists(noaa_path):
         print("NOAA catalog not found. Downloading...")
-        master_catalogue = download_noaa_catalog(start_year=2023, end_year=2024, out_path=noaa_path)
+        master_catalogue = download_noaa_catalog(start_year=2010, end_year=2024, out_path=noaa_path)
     else:
         master_catalogue = pd.read_parquet(noaa_path)
         
@@ -86,7 +86,7 @@ def get_real_data():
         print("Skipping cross-calibration loudly. The model will train on raw GOES flux.")
         goes_df["xrs_b_calibrated"] = goes_df["xrs_b"]
         goes_df["xrs_a_calibrated"] = goes_df["xrs_a"]
-        calib = {"slope": 1.0, "intercept": 0.0, "r2": 1.0, "n_samples": 0}
+        calib = {"slope": 1.0, "intercept": 0.0, "calibrated": False, "n_samples": 0}
     else:
         from src.ingestion.fits_reader import read_solexs
         solexs_df = pd.concat([read_solexs(f) for f in solexs_files]).sort_index()
@@ -98,7 +98,7 @@ def get_real_data():
             print(f"Calibration fitting failed ({e}). Using raw flux.")
             goes_df["xrs_b_calibrated"] = goes_df["xrs_b"]
             goes_df["xrs_a_calibrated"] = goes_df["xrs_a"]
-            calib = {"slope": 1.0, "intercept": 0.0, "r2": 1.0, "n_samples": 0}
+            calib = {"slope": 1.0, "intercept": 0.0, "calibrated": False, "n_samples": 0}
 
     # Save calibration to configs
     try:

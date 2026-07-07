@@ -20,11 +20,16 @@ def download_goes_xrs(start_date: str, end_date: str, output_dir: str = "data/ra
     os.makedirs(output_dir, exist_ok=True)
     
     print(f"Fetching GOES XRS data from {start_date} to {end_date}...")
+    
+    # Determine primary satellite based on start year (GOES-15 pre-2017, GOES-16 2017+)
+    start_dt = pd.Timestamp(start_date)
+    sat_number = 16 if start_dt.year >= 2017 else 15
+    
     result = Fido.search(
         a.Time(start_date, end_date),
         a.Instrument.xrs,
         a.Resolution("avg1m"),
-        a.goes.SatelliteNumber(16),
+        a.goes.SatelliteNumber(sat_number),
     )
     
     if len(result) == 0:

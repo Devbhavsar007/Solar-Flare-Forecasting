@@ -1,8 +1,5 @@
-# SHA-256 hashes of canonical model files
-# Populated automatically by promote_if_better() in M16
-# Used by verify_model_hash() for integrity checks [T-2]
-xgb_multiclass.json: ""
-xgb_multiclass.pkl: ""
-causal_lstm.pt: ""
-conformal_mapie.pkl: ""
-tcn_encoder.onnx: ""
+causal_lstm.pt: ''
+conformal_mapie.pkl: ''
+tcn_encoder.onnx: ''
+xgb_multiclass.json: ''
+xgb_multiclass.pkl: 66a2707b4f8a59aef4ffd704edf4e81b467fdd83b350b61dcd36f1ef5fbdb057

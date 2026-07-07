@@ -1,15 +1,15 @@
-# configs/nowcasting.yaml
-phase_detector:
-  peak_frac_pre:     0.30   # UPDATE after M1 EDA on real SoLEXS data
-  peak_frac_gradual: 0.80   # UPDATE after M1 EDA
-  background_sigma:  0.10   # background × (1+sigma) is quiet-sun threshold
-
 class_thresholds:
-  # X-class LOWER than M-class: missing X is catastrophically costly.
-  # C-class lowest: maximize sensitivity for early warning.
-  C: 0.38
-  M: 0.45
-  X: 0.28   # lower = higher recall = fewer missed X events
-  binary: 0.40
-
-dead_time_us: 2.5   # HEL1OS paralyzable model — verify from instrument docs
+  C: 0.9
+  M: 0.1
+  N: 0.1
+  X: 0.1
+dead_time_us: 2.5
+goes_calibration:
+  intercept: 0.0
+  n_samples: 0
+  r2: 1.0
+  slope: 1.0
+phase_detector:
+  background_sigma: 0.1
+  peak_frac_gradual: 0.8
+  peak_frac_pre: 0.3
