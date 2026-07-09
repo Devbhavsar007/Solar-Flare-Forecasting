@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -17,11 +18,83 @@ import {
 import JwalaLogo from "../components/JwalaLogo";
 
 export default function Home() {
+  const scrollWrapperRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
+  const emberRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!scrollWrapperRef.current || !heroRef.current) return;
+      const rect = scrollWrapperRef.current.getBoundingClientRect();
+      const viewH = window.innerHeight;
+      
+      const totalScroll = rect.height - viewH;
+      if (totalScroll <= 0) return;
+      
+      const scrollY = -rect.top;
+      const progress = Math.max(0, Math.min(1, scrollY / totalScroll));
+      
+      heroRef.current.style.setProperty('--burn-progress', progress.toString());
+      
+      if (emberRef.current) {
+        // Calculate position matching the gradient transition edge
+        const maskY = 100 - progress * 150;
+        // As progress goes 0 -> 1, ember edge moves from bottom (100%) to top (0%)
+        emberRef.current.style.top = `${Math.max(-10, Math.min(110, maskY + 15 * progress))}%`;
+        emberRef.current.style.opacity = (progress > 0.01 && progress < 0.99) ? "1" : "0";
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <div className="home-container">
-      {/* ── Hero ── */}
-      <section className="home-hero">
-        <div className="hero-content">
+    <>
+      {/* SVG noise filter used by CSS mask-image for organic burn edges */}
+      <svg className="burn-svg-filters" aria-hidden="true">
+        <defs>
+          <filter id="burn-noise" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.03"
+              numOctaves="4"
+              seed="5"
+              result="noise"
+            />
+            <feColorMatrix
+              type="saturate"
+              values="0"
+              in="noise"
+              result="greyNoise"
+            />
+            <feComponentTransfer in="greyNoise" result="threshNoise">
+              <feFuncA type="discrete" tableValues="0 0 0 0 1 1 1 1" />
+            </feComponentTransfer>
+          </filter>
+        </defs>
+      </svg>
+
+      {/* ── Scroll container wrapper to lock the Hero ── */}
+      <div ref={scrollWrapperRef} className="hero-scroll-container">
+        {/* ── Hero (full-viewport, sticky outside container) ── */}
+        <section ref={heroRef} className="home-hero">
+          {/* Full-screen background video */}
+          <video
+            className="hero-bg-video"
+            src="/Magnificent_Eruption_Mk_II-overlay.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+          <div className="hero-bg-overlay" />
+          
+          {/* Glowing ember edge of the burn transition */}
+          <div ref={emberRef} className="burn-ember-line" />
+
+          <div className="hero-content">
           <div className="home-badge">
             <Sparkles size={13} /> ISRO Aditya-L1 · PS-15 Mission
           </div>
@@ -46,19 +119,6 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="hero-video-wrapper">
-          <div className="hero-video-frame">
-            <video
-              className="hero-video"
-              src="/Magnificent_Eruption_Mk_II-overlay.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
-            />
-            <div className="hero-video-glow" />
-          </div>
-        </div>
 
         <div className="hero-stats-container">
           <div className="hero-stats-row">
@@ -84,6 +144,10 @@ export default function Home() {
           </div>
         </div>
       </section>
+      </div>
+
+      {/* ── Rest of page inside constrained container ── */}
+      <div className="home-container">
 
       {/* ── What is JWALA? ── */}
       <section className="home-callout">
@@ -541,6 +605,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }
