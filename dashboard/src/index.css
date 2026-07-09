@@ -865,7 +865,6 @@ code, .mono {
   padding: 0 24px;
   position: relative;
   z-index: 2;
-  margin-top: -100vh;
 }
 
 .section-header { text-align: center; margin-bottom: 72px; }
@@ -898,17 +897,12 @@ code, .mono {
   line-height: 1.65;
 }
 
-/* ── Hero Scroll Container ── */
-.hero-scroll-container {
-  position: relative;
-  height: 200vh; /* Scroll room for the 100vh sticky hero burn */
-  z-index: 3;
-}
-
-/* ── Hero ── */
+/* ── Hero (Fixed Background Panel) ── */
 .home-hero {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  width: 100%;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -918,17 +912,37 @@ code, .mono {
   text-align: center;
   overflow: hidden;
   background: #0d0f12;
-  z-index: 3;
-
-  /* Disable pointer events on the container so clicks pass through when dissolved */
-  pointer-events: none;
+  z-index: 1;
+  pointer-events: auto;
 }
 
-/* Enable pointer events on sub-elements so clicks work normally on active areas */
-.hero-content,
-.hero-stats-container,
-.hero-bg-video {
-  pointer-events: auto;
+/* ── Content Wrapper (Scrolls over the sticky Hero) ── */
+.scroll-wrapper-content {
+  position: relative;
+  z-index: 2;
+  margin-top: 100vh; /* Pushes content below the viewport on load */
+  background: #0d0f12; /* Solid color to completely cover the video */
+  box-shadow: 0 -20px 40px rgba(0, 0, 0, 0.8);
+}
+
+/* ── Burning transition edge preceding content ── */
+.burn-transition-edge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 150px;
+  transform: translateY(-100%);
+  background: #0d0f12;
+  pointer-events: none;
+  z-index: 3;
+  
+  /* Mask gradient to fade the edge from solid to transparent */
+  mask-image: linear-gradient(to top, rgba(0,0,0,1) 15%, rgba(0,0,0,0) 100%);
+  -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 15%, rgba(0,0,0,0) 100%);
+
+  /* Apply SVG turbulence displacement map to distort the mask into a rough paper-burn edge */
+  filter: url(#burn-noise);
 }
 
 /* Full-viewport background video */
@@ -1999,11 +2013,11 @@ code, .mono {
 
 /* ── Global Sparkles Background Animation ── */
 .sparkles-bg {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   z-index: 1;
   pointer-events: none;
 }
@@ -2017,27 +2031,24 @@ code, .mono {
 
 .burn-ember-line {
   position: absolute;
+  bottom: 0;
   left: 0;
   right: 0;
-  height: 3px;
+  height: 4px;
   background: linear-gradient(90deg,
     transparent 0%,
-    rgba(246, 211, 55, 0.3) 10%,
-    rgba(255, 140, 0, 0.8) 25%,
+    rgba(246, 211, 55, 0.4) 10%,
+    rgba(255, 140, 0, 0.85) 25%,
     rgba(255, 69, 0, 1) 40%,
     rgba(246, 211, 55, 1) 50%,
     rgba(255, 69, 0, 1) 60%,
-    rgba(255, 140, 0, 0.8) 75%,
-    rgba(246, 211, 55, 0.3) 90%,
+    rgba(255, 140, 0, 0.85) 75%,
+    rgba(246, 211, 55, 0.4) 90%,
     transparent 100%
   );
   box-shadow:
-    0 0 8px 2px rgba(255, 69, 0, 0.6),
-    0 0 20px 4px rgba(246, 211, 55, 0.3),
-    0 0 40px 8px rgba(255, 140, 0, 0.15);
-  transition: opacity 0.3s ease;
-  transform: translateY(-50%);
-  
-  /* Apply the turbulence displacement filter to make the flame edge wavy and organic */
-  filter: url(#burn-noise);
+    0 0 10px 3px rgba(255, 69, 0, 0.8),
+    0 0 25px 6px rgba(246, 211, 55, 0.45),
+    0 0 50px 10px rgba(255, 140, 0, 0.2);
+  transform: translateY(50%);
 }

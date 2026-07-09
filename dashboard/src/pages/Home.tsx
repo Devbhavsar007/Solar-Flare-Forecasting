@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -16,144 +15,48 @@ import {
   Eye,
 } from "lucide-react";
 import JwalaLogo from "../components/JwalaLogo";
+import { SparklesCore } from "../components/SparklesCore";
 
 export default function Home() {
-  const scrollWrapperRef = useRef<HTMLDivElement>(null);
-  const heroRef = useRef<HTMLElement>(null);
-  const emberRef = useRef<HTMLDivElement>(null);
-
-  const [debug, setDebug] = useState({
-    rectTop: 0,
-    rectHeight: 0,
-    scrollY: 0,
-    progress: 0,
-  });
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!scrollWrapperRef.current || !heroRef.current) return;
-      const rect = scrollWrapperRef.current.getBoundingClientRect();
-      const viewH = window.innerHeight;
-      
-      const totalScroll = rect.height - viewH;
-      if (totalScroll <= 0) return;
-      
-      const scrollY = -rect.top;
-      const progress = Math.max(0, Math.min(1, scrollY / totalScroll));
-
-      setDebug({
-        rectTop: rect.top,
-        rectHeight: rect.height,
-        scrollY: scrollY,
-        progress: progress,
-      });
-      
-      // Calculate mask gradient stops directly in JS for perfect cross-browser compatibility
-      const maskPercent = progress * 150;
-      const stop1 = Math.max(0, 100 - maskPercent);
-      const stop2 = Math.min(100, Math.max(0, 100 - maskPercent + 15));
-      
-      const maskVal = `linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) ${stop1}%, rgba(0,0,0,0) ${stop2}%)`;
-      const webkitMaskVal = `-webkit-linear-gradient(top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) ${stop1}%, rgba(0,0,0,0) ${stop2}%)`;
-      
-      heroRef.current.style.maskImage = maskVal;
-      heroRef.current.style.webkitMaskImage = webkitMaskVal;
-      
-      // Fully hide the hero when it is completely burned away so it doesn't block clicks
-      if (progress >= 0.98) {
-        heroRef.current.style.visibility = 'hidden';
-      } else {
-        heroRef.current.style.visibility = 'visible';
-      }
-      
-      if (emberRef.current) {
-        // Calculate position matching the gradient transition edge
-        const maskY = 100 - progress * 150;
-        // As progress goes 0 -> 1, ember edge moves from bottom (100%) to top (0%)
-        emberRef.current.style.top = `${Math.max(-10, Math.min(110, maskY + 15 * progress))}%`;
-        emberRef.current.style.opacity = (progress > 0.01 && progress < 0.99) ? "1" : "0";
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   return (
     <>
-      {/* SVG noise filter used by CSS mask-image for organic burn edges */}
+      {/* SVG noise filter for the organic, burning edge border */}
       <svg className="burn-svg-filters" aria-hidden="true">
         <defs>
           <filter id="burn-noise" x="-20%" y="-20%" width="140%" height="140%">
             <feTurbulence
               type="fractalNoise"
-              baseFrequency="0.03"
+              baseFrequency="0.035"
               numOctaves="4"
-              seed="5"
+              seed="8"
               result="noise"
             />
-            <feColorMatrix
-              type="saturate"
-              values="0"
-              in="noise"
-              result="greyNoise"
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="noise"
+              scale="35"
+              xChannelSelector="R"
+              yChannelSelector="G"
             />
-            <feComponentTransfer in="greyNoise" result="threshNoise">
-              <feFuncA type="discrete" tableValues="0 0 0 0 1 1 1 1" />
-            </feComponentTransfer>
           </filter>
         </defs>
       </svg>
 
-      {/* Scroll Debug Banner */}
-      <div style={{
-        position: 'fixed',
-        top: '80px',
-        left: '20px',
-        zIndex: 99999,
-        background: 'rgba(0,0,0,0.95)',
-        border: '1px solid #F6D337',
-        color: '#F6D337',
-        padding: '12px 16px',
-        borderRadius: '8px',
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        pointerEvents: 'none',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.8)'
-      }}>
-        <div>Wrapper Rect Top: {debug.rectTop.toFixed(1)}px</div>
-        <div>Wrapper Height: {debug.rectHeight.toFixed(1)}px</div>
-        <div>ScrollY: {debug.scrollY.toFixed(1)}px</div>
-        <div>Progress: {(debug.progress * 100).toFixed(1)}%</div>
-      </div>
+      {/* ── Sticky Hero (locks in the background) ── */}
+      <section className="home-hero">
+        {/* Full-screen background video */}
+        <video
+          className="hero-bg-video"
+          src="/Magnificent_Eruption_Mk_II-overlay.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+        />
+        <div className="hero-bg-overlay" />
 
-      {/* ── Scroll container wrapper to lock the Hero ── */}
-      <div ref={scrollWrapperRef} className="hero-scroll-container">
-        {/* ── Hero (full-viewport, sticky outside container) ── */}
-        <section
-          ref={heroRef}
-          className="home-hero"
-          style={{
-            maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 100%, rgba(0,0,0,0) 100%)',
-            WebkitMaskImage: '-webkit-linear-gradient(top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 100%, rgba(0,0,0,0) 100%)'
-          }}
-        >
-          {/* Full-screen background video */}
-          <video
-            className="hero-bg-video"
-            src="/Magnificent_Eruption_Mk_II-overlay.mp4"
-            autoPlay
-            loop
-            muted
-            playsInline
-          />
-          <div className="hero-bg-overlay" />
-          
-          {/* Glowing ember edge of the burn transition */}
-          <div ref={emberRef} className="burn-ember-line" />
-
-          <div className="hero-content">
+        <div className="hero-content">
           <div className="home-badge">
             <Sparkles size={13} /> ISRO Aditya-L1 · PS-15 Mission
           </div>
@@ -177,7 +80,6 @@ export default function Home() {
             </Link>
           </div>
         </div>
-
 
         <div className="hero-stats-container">
           <div className="hero-stats-row">
@@ -203,10 +105,27 @@ export default function Home() {
           </div>
         </div>
       </section>
-      </div>
 
-      {/* ── Rest of page inside constrained container ── */}
-      <div className="home-container">
+      {/* ── Content Wrapper (scrolls over the sticky Hero) ── */}
+      <div className="scroll-wrapper-content">
+        {/* Sparkles background contained inside the scrolling wrapper */}
+        <SparklesCore
+          id="tsparticles-home"
+          background="transparent"
+          minSize={0.6}
+          maxSize={1.4}
+          speed={3.5}
+          particleColor="#F6D337"
+          particleDensity={80}
+          className="sparkles-bg"
+        />
+
+        {/* The active burning paper edge with ember line */}
+        <div className="burn-transition-edge">
+          <div className="burn-ember-line" />
+        </div>
+
+        <div className="home-container">
 
       {/* ── What is JWALA? ── */}
       <section className="home-callout">
@@ -664,6 +583,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      </div>
       </div>
     </>
   );

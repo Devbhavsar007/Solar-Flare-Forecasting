@@ -12,16 +12,6 @@ export default function App() {
   return (
     <LiveDataProvider>
       <div className="app-shell">
-        <SparklesCore
-          id="tsparticles"
-          background="transparent"
-          minSize={0.6}
-          maxSize={1.4}
-          speed={3.5}
-          particleColor="#F6D337"
-          particleDensity={80}
-          className="sparkles-bg"
-        />
         <NavBar />
         <Suspense
           fallback={
