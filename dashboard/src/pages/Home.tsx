@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -22,6 +22,13 @@ export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
   const emberRef = useRef<HTMLDivElement>(null);
 
+  const [debug, setDebug] = useState({
+    rectTop: 0,
+    rectHeight: 0,
+    scrollY: 0,
+    progress: 0,
+  });
+
   useEffect(() => {
     const handleScroll = () => {
       if (!scrollWrapperRef.current || !heroRef.current) return;
@@ -33,6 +40,13 @@ export default function Home() {
       
       const scrollY = -rect.top;
       const progress = Math.max(0, Math.min(1, scrollY / totalScroll));
+
+      setDebug({
+        rectTop: rect.top,
+        rectHeight: rect.height,
+        scrollY: scrollY,
+        progress: progress,
+      });
       
       // Calculate mask gradient stops directly in JS for perfect cross-browser compatibility
       const maskPercent = progress * 150;
@@ -91,6 +105,28 @@ export default function Home() {
           </filter>
         </defs>
       </svg>
+
+      {/* Scroll Debug Banner */}
+      <div style={{
+        position: 'fixed',
+        top: '80px',
+        left: '20px',
+        zIndex: 99999,
+        background: 'rgba(0,0,0,0.95)',
+        border: '1px solid #F6D337',
+        color: '#F6D337',
+        padding: '12px 16px',
+        borderRadius: '8px',
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        pointerEvents: 'none',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.8)'
+      }}>
+        <div>Wrapper Rect Top: {debug.rectTop.toFixed(1)}px</div>
+        <div>Wrapper Height: {debug.rectHeight.toFixed(1)}px</div>
+        <div>ScrollY: {debug.scrollY.toFixed(1)}px</div>
+        <div>Progress: {(debug.progress * 100).toFixed(1)}%</div>
+      </div>
 
       {/* ── Scroll container wrapper to lock the Hero ── */}
       <div ref={scrollWrapperRef} className="hero-scroll-container">
