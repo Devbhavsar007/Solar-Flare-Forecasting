@@ -80,7 +80,7 @@ export default function FluxChart({ data, showUncertainty = true }: Props) {
               yAxisId="sxr"
               dataKey="q90"
               stroke="none"
-              fill="rgba(6, 182, 212, 0.08)"
+              fill="rgba(246, 211, 55, 0.08)"
               name="q90 bound"
             />
           )}
@@ -89,7 +89,7 @@ export default function FluxChart({ data, showUncertainty = true }: Props) {
               yAxisId="sxr"
               dataKey="q10"
               stroke="none"
-              fill="rgba(6, 182, 212, 0.08)"
+              fill="rgba(246, 211, 55, 0.08)"
               name="q10 bound"
             />
           )}
@@ -98,7 +98,7 @@ export default function FluxChart({ data, showUncertainty = true }: Props) {
             yAxisId="sxr"
             type="monotone"
             dataKey="sxr"
-            stroke="#06b6d4"
+            stroke="#F6D337"
             strokeWidth={2}
             dot={false}
             name="SXR Flux"

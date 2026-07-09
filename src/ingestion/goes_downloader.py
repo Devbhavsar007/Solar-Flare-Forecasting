@@ -37,7 +37,9 @@ def download_goes_xrs(start_date: str, end_date: str, output_dir: str = "data/ra
         return
         
     print(f"Found {len(result[0])} files. Downloading...")
-    downloaded_files = Fido.fetch(result, path=output_dir)
+    # NOAA servers often timeout on concurrent downloads of large GOES-16+ NetCDF files.
+    # We restrict max_conn to 2 to prevent "Timeout on reading data from socket".
+    downloaded_files = Fido.fetch(result, path=output_dir, max_conn=2)
     
     if not downloaded_files:
         print("Failed to download files.")

@@ -5,9 +5,9 @@ class_thresholds:
   X: 0.1
 dead_time_us: 2.5
 goes_calibration:
+  calibrated: false
   intercept: 0.0
   n_samples: 0
-  r2: 1.0
   slope: 1.0
 phase_detector:
   background_sigma: 0.1

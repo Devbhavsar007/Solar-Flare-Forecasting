@@ -164,14 +164,53 @@ def optimize_per_class_thresholds(
         dict mapping class name → optimal threshold.
     """
     proba = model.predict_proba(combined_val)
+    
+    # Safety: if the model only learned a subset of classes, proba may have fewer
+    # columns than 4, or be completely degenerate. Pad to (N, 4).
+    n_samples = combined_val.shape[0]
+    
+    if proba.ndim == 1:
+        # Model returned a single row or flat array
+        if proba.shape[0] == 4:
+            # Single sample case: (4,) -> (1, 4)
+            proba = proba.reshape(1, -1)
+        else:
+            # Completely degenerate — fall back to defaults
+            print("WARNING: predict_proba returned degenerate output. Using default thresholds.")
+            defaults = {"N": 0.50, "C": 0.38, "M": 0.45, "X": 0.28}
+            try:
+                with open("configs/nowcasting.yaml") as f:
+                    cfg = yaml.safe_load(f) or {}
+            except FileNotFoundError:
+                cfg = {}
+            cfg["class_thresholds"] = defaults
+            with open("configs/nowcasting.yaml", "w") as f:
+                yaml.dump(cfg, f, default_flow_style=False)
+            print(f"Per-class thresholds (defaults): {defaults}")
+            return defaults
+    
+    if proba.shape[1] < 4:
+        padded = np.zeros((proba.shape[0], 4))
+        for i, cls in enumerate(model.classes_):
+            padded[:, int(cls)] = proba[:, i]
+        proba = padded
+    
+    # Verify proba and y_val have compatible lengths
+    if proba.shape[0] != n_samples:
+        print(f"WARNING: proba shape {proba.shape} doesn't match input size {n_samples}. Using default thresholds.")
+        defaults = {"N": 0.50, "C": 0.38, "M": 0.45, "X": 0.28}
+        return defaults
+    
     class_names = ["N", "C", "M", "X"]
     thresholds: dict[str, float] = {}
 
+    y_val_arr = np.asarray(y_val).ravel()
+    
     for cls_idx, cls_name in enumerate(class_names):
         best_tss = -1.0
         best_t = 0.50
 
-        binary_true = (y_val == cls_idx).astype(int)
+        binary_true = (y_val_arr == cls_idx).astype(int)
         for t in np.arange(0.10, 0.91, 0.05):
             binary_pred = (proba[:, cls_idx] >= t).astype(int)
             tp = ((binary_pred == 1) & (binary_true == 1)).sum()

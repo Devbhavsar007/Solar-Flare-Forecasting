@@ -6,6 +6,11 @@ Prevents memory exhaustion and API timeouts during large historical pulls.
 import argparse
 import pandas as pd
 import time
+import sys
+import os
+
+# Ensure the root project directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.ingestion.goes_downloader import download_goes_xrs
 
@@ -27,6 +32,14 @@ def batch_download(start_year: int, end_year: int):
         start_str = month_start.strftime("%Y-%m-%d")
         end_str = month_end.strftime("%Y-%m-%d")
         
+        start_str_compact = month_start.strftime('%Y%m%d')
+        end_str_compact = month_end.strftime('%Y%m%d')
+        out_file = os.path.join("data/raw/goes", f"goes_xrs_{start_str_compact}_{end_str_compact}.parquet")
+        
+        if os.path.exists(out_file):
+            print(f"\n[{i+1}/{len(months)}] Skipping {start_str} to {end_str} (already exists)")
+            continue
+            
         print(f"\n[{i+1}/{len(months)}] Fetching {start_str} to {end_str}...")
         
         try:

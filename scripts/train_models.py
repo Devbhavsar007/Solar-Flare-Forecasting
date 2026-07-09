@@ -20,6 +20,10 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import recall_score, f1_score
 import xgboost as xgb
+import sys
+
+# Ensure the root project directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.nowcasting.train import (
     train_multiclass_nowcast, 
@@ -114,12 +118,15 @@ def get_real_data():
     goes_df = build_multiclass_labels(goes_df, master_catalogue)
     
     feature_cols = ["xrs_a_calibrated", "xrs_b_calibrated", "xrs_a", "xrs_b"]
-    X, y_now, y_fore = create_windows(goes_df, feature_cols=feature_cols, window_size=60, horizon=15)
+    STEP = 15  # One window every 15 minutes to keep memory manageable on laptops
+    X, y_now, y_fore = create_windows(goes_df, feature_cols=feature_cols, window_size=60, horizon=15, step=STEP)
     
     # create_windows returns indices that map to the original df
-    # We need dates for the temporal split. 
-    # create_windows stops at len(data) - window_size - horizon + 1.
-    dates = goes_df.index[60-1 : len(goes_df) - 15]
+    # We need dates for the temporal split.
+    # With step, the window centers are at indices: 59, 59+step, 59+2*step, ...
+    dates = goes_df.index[60-1 : len(goes_df) - 15 : STEP]
+    # Trim to match X length in case of off-by-one
+    dates = dates[:len(X)]
 
     return X, y_now, dates
 
@@ -130,9 +137,9 @@ def temporal_three_way_split(X, y, dates):
     Validate (for threshold tuning): 2022
     Test (for final reporting): >= 2023
     """
-    train_mask = dates.year <= 2021
-    val_mask = dates.year == 2022
-    test_mask = dates.year >= 2023
+    train_mask = dates.year <= 2010
+    val_mask = dates.year == 2011
+    test_mask = dates.year >= 2012
     
     X_tr, y_tr = X[train_mask], y[train_mask]
     X_val, y_val = X[val_mask], y[val_mask]
@@ -189,17 +196,31 @@ def main():
     combined_test = np.concatenate([tcn_test, flat_test], axis=1)
     
     proba_test = model.predict_proba(combined_test)
-    y_pred = np.zeros_like(y_test)
     
-    for i in range(len(y_test)):
-        if proba_test[i, 3] >= thresholds.get("X", 0.5):
-            y_pred[i] = 3
-        elif proba_test[i, 2] >= thresholds.get("M", 0.5):
-            y_pred[i] = 2
-        elif proba_test[i, 1] >= thresholds.get("C", 0.5):
-            y_pred[i] = 1
-        else:
-            y_pred[i] = 0
+    # Safety: handle degenerate predict_proba output from single-class models
+    n_test = len(y_test)
+    if proba_test.ndim == 1:
+        proba_test = proba_test.reshape(1, -1)
+    # If shape is (num_classes, N) instead of (N, num_classes), transpose
+    if proba_test.shape[0] != n_test and proba_test.shape[1] != 4:
+        # Completely degenerate — just predict all N-class
+        print(f"WARNING: predict_proba returned unexpected shape {proba_test.shape}. Defaulting all predictions to N-class.")
+        y_pred = np.zeros_like(y_test)
+    else:
+        if proba_test.shape[0] != n_test and proba_test.ndim == 2:
+            proba_test = proba_test.T
+        # Pad to 4 columns if model only learned a subset of classes
+        if proba_test.shape[1] < 4:
+            padded = np.zeros((proba_test.shape[0], 4))
+            for ci, cls in enumerate(model.classes_):
+                padded[:, int(cls)] = proba_test[:, ci]
+            proba_test = padded
+        
+        # Vectorized threshold application (X > M > C priority)
+        y_pred = np.zeros(n_test, dtype=int)
+        y_pred[proba_test[:, 1] >= thresholds.get("C", 0.5)] = 1
+        y_pred[proba_test[:, 2] >= thresholds.get("M", 0.5)] = 2
+        y_pred[proba_test[:, 3] >= thresholds.get("X", 0.5)] = 3
 
     class_names = ["N", "C", "M", "X"]
     recalls = recall_score(y_test, y_pred, average=None, zero_division=0)
