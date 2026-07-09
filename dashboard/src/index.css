@@ -920,22 +920,15 @@ code, .mono {
   background: #0d0f12;
   z-index: 3;
 
-  /* CSS Mask driven by scroll progress */
-  mask-image: linear-gradient(
-    to bottom,
-    black 0%,
-    black calc(100% - var(--burn-progress, 0) * 150%),
-    transparent calc(100% - var(--burn-progress, 0) * 150% + 15%)
-  );
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    black 0%,
-    black calc(100% - var(--burn-progress, 0) * 150%),
-    transparent calc(100% - var(--burn-progress, 0) * 150% + 15%)
-  );
+  /* Disable pointer events on the container so clicks pass through when dissolved */
+  pointer-events: none;
+}
 
-  /* Subtle organic edge distortion via SVG filter */
-  filter: url(#burn-noise);
+/* Enable pointer events on sub-elements so clicks work normally on active areas */
+.hero-content,
+.hero-stats-container,
+.hero-bg-video {
+  pointer-events: auto;
 }
 
 /* Full-viewport background video */
@@ -2044,4 +2037,7 @@ code, .mono {
     0 0 40px 8px rgba(255, 140, 0, 0.15);
   transition: opacity 0.3s ease;
   transform: translateY(-50%);
+  
+  /* Apply the turbulence displacement filter to make the flame edge wavy and organic */
+  filter: url(#burn-noise);
 }

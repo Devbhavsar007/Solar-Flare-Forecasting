@@ -34,7 +34,23 @@ export default function Home() {
       const scrollY = -rect.top;
       const progress = Math.max(0, Math.min(1, scrollY / totalScroll));
       
-      heroRef.current.style.setProperty('--burn-progress', progress.toString());
+      // Calculate mask gradient stops directly in JS for perfect cross-browser compatibility
+      const maskPercent = progress * 150;
+      const stop1 = Math.max(0, 100 - maskPercent);
+      const stop2 = Math.min(100, Math.max(0, 100 - maskPercent + 15));
+      
+      const maskVal = `linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) ${stop1}%, rgba(0,0,0,0) ${stop2}%)`;
+      const webkitMaskVal = `-webkit-linear-gradient(top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) ${stop1}%, rgba(0,0,0,0) ${stop2}%)`;
+      
+      heroRef.current.style.maskImage = maskVal;
+      heroRef.current.style.webkitMaskImage = webkitMaskVal;
+      
+      // Fully hide the hero when it is completely burned away so it doesn't block clicks
+      if (progress >= 0.98) {
+        heroRef.current.style.visibility = 'hidden';
+      } else {
+        heroRef.current.style.visibility = 'visible';
+      }
       
       if (emberRef.current) {
         // Calculate position matching the gradient transition edge
@@ -79,7 +95,14 @@ export default function Home() {
       {/* ── Scroll container wrapper to lock the Hero ── */}
       <div ref={scrollWrapperRef} className="hero-scroll-container">
         {/* ── Hero (full-viewport, sticky outside container) ── */}
-        <section ref={heroRef} className="home-hero">
+        <section
+          ref={heroRef}
+          className="home-hero"
+          style={{
+            maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 100%, rgba(0,0,0,0) 100%)',
+            WebkitMaskImage: '-webkit-linear-gradient(top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 100%, rgba(0,0,0,0) 100%)'
+          }}
+        >
           {/* Full-screen background video */}
           <video
             className="hero-bg-video"
