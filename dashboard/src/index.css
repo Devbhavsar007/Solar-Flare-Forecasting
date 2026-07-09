@@ -2012,6 +2012,17 @@ code, .mono {
 }
 
 /* ── Global Sparkles Background Animation ── */
+.sparkles-sticky-container {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 100%;
+  z-index: 1;
+  pointer-events: none;
+  margin-bottom: -100vh; /* Allow subsequent content to draw on top */
+  overflow: hidden;
+}
+
 .sparkles-bg {
   position: absolute;
   top: 0;

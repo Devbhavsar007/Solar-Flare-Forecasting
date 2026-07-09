@@ -108,17 +108,19 @@ export default function Home() {
 
       {/* ── Content Wrapper (scrolls over the sticky Hero) ── */}
       <div className="scroll-wrapper-content">
-        {/* Sparkles background contained inside the scrolling wrapper */}
-        <SparklesCore
-          id="tsparticles-home"
-          background="transparent"
-          minSize={0.6}
-          maxSize={1.4}
-          speed={3.5}
-          particleColor="#F6D337"
-          particleDensity={80}
-          className="sparkles-bg"
-        />
+        {/* Sticky Sparkles container locked to viewport height */}
+        <div className="sparkles-sticky-container">
+          <SparklesCore
+            id="tsparticles-home"
+            background="transparent"
+            minSize={0.6}
+            maxSize={1.4}
+            speed={3.5}
+            particleColor="#F6D337"
+            particleDensity={80}
+            className="sparkles-bg"
+          />
+        </div>
 
         {/* The active burning paper edge with ember line */}
         <div className="burn-transition-edge">
