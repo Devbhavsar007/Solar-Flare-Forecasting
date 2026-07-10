@@ -108,12 +108,12 @@ export default function Home() {
             color="#0d0f12"
             transitionColor="#F6D337"
             noiseScale={0.37}
-            noiseIntensity={0.3}
-            scrollSensitivity={0.4}
-            baseAnimationSpeed={0.1}
+            noiseIntensity={0.35}
+            scrollSensitivity={0.8}
+            baseAnimationSpeed={0.8}
             edgeSoftness={0.4}
-            bloomIntensity={0.5}
-            bloomRadius={0.1}
+            bloomIntensity={0.8}
+            bloomRadius={0.4}
             parallaxEnabled={true}
             movement={{ horizontal: "center", vertical: 0.5 }}
           />

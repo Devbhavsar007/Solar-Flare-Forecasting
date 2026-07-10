@@ -485,34 +485,17 @@ export default function WebGLBurnTransition({
   };
 
   const updateParallaxOffset = () => {
-    const container = containerRef.current;
-    if (!container) return;
     if (!parallaxEnabledRef.current) {
       parallaxOffsetRef.current = 0;
       return;
     }
-    const rect = container.getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
+    const currentScrollY = window.scrollY || window.pageYOffset;
     
-    const componentTop = rect.top;
-    const componentBottom = rect.bottom;
-    const componentHeight = rect.height;
-
-    let progress = 0;
-    if (componentTop >= viewportHeight) {
-      progress = 1; // Not entered yet
-    } else if (componentBottom <= 0) {
-      progress = 0; // Exited
-    } else {
-      progress = 1 - (viewportHeight - componentTop) / (viewportHeight + componentHeight);
-      progress = Math.max(0, Math.min(1, progress));
-    }
+    // Smoothly ignite the burning edge over the first 60px of scroll
+    const ignition = Math.min(1, currentScrollY / 60);
     
-    const startPosition = parallaxStartRef.current / 100;
-    const endPosition = parallaxEndRef.current / 100;
-    
-    const targetPosition = startPosition + (endPosition - startPosition) * (1 - progress);
-    parallaxOffsetRef.current = targetPosition - 0.5;
+    // Baseline shifts from -0.5 (y=0.0, transparent) to 0.0 (y=0.5, centered inside the 300px transition canvas)
+    parallaxOffsetRef.current = -0.5 + (0.5 * ignition);
   };
 
   useEffect(() => {
