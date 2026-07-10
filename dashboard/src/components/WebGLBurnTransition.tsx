@@ -490,12 +490,12 @@ export default function WebGLBurnTransition({
       return;
     }
     const currentScrollY = window.scrollY || window.pageYOffset;
+    const viewportHeight = window.innerHeight || 800;
     
-    // Smoothly ignite the burning edge over the first 60px of scroll
-    const ignition = Math.min(1, currentScrollY / 60);
+    // progress is 0.0 at scrollY = 0, and 1.0 at scrollY = viewportHeight
+    const progress = Math.max(0, Math.min(1, currentScrollY / viewportHeight));
     
-    // Baseline shifts from -0.5 (y=0.0, transparent) to 0.0 (y=0.5, centered inside the 300px transition canvas)
-    parallaxOffsetRef.current = -0.5 + (0.5 * ignition);
+    parallaxOffsetRef.current = progress - 0.5;
   };
 
   useEffect(() => {
