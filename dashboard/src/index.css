@@ -2011,7 +2011,8 @@ code, .mono {
   width: 100%;
   z-index: 1;
   pointer-events: none;
-  margin-bottom: -100vh; /* Allow subsequent content to draw on top */
+  margin-top: -150px; /* Pull up to start sparkles inside the transition zone */
+  margin-bottom: calc(-100vh + 150px); /* Balance the height offset */
   overflow: hidden;
 }
 

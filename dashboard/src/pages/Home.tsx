@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -19,6 +20,23 @@ import { SparklesCore } from "../components/SparklesCore";
 import WebGLBurnTransition from "../components/WebGLBurnTransition";
 
 export default function Home() {
+  const [scrollOpacity, setScrollOpacity] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY || window.pageYOffset;
+      // Opacity goes from 0.0 to 1.0 as scrollY goes from 0 to 100px
+      const opacity = Math.min(1, currentScrollY / 100);
+      setScrollOpacity(opacity);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   return (
     <>
@@ -89,7 +107,10 @@ export default function Home() {
       {/* ── Content Wrapper (scrolls over the sticky Hero) ── */}
       <div className="scroll-wrapper-content">
         {/* Sticky Sparkles container locked to viewport height */}
-        <div className="sparkles-sticky-container">
+        <div 
+          className="sparkles-sticky-container"
+          style={{ opacity: scrollOpacity }}
+        >
           <SparklesCore
             id="tsparticles-home"
             background="transparent"
