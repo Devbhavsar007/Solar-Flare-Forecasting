@@ -2004,17 +2004,6 @@ code, .mono {
 }
 
 /* ── Global Sparkles Background Animation ── */
-.sparkles-sticky-container {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  width: 100%;
-  z-index: 1;
-  pointer-events: none;
-  margin-top: -150px; /* Pull up to start sparkles inside the transition zone */
-  margin-bottom: calc(-100vh + 150px); /* Balance the height offset */
-  overflow: hidden;
-}
 
 .sparkles-bg {
   position: absolute;

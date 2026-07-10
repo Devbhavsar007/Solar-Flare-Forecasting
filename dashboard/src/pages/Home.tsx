@@ -106,10 +106,19 @@ export default function Home() {
 
       {/* ── Content Wrapper (scrolls over the sticky Hero) ── */}
       <div className="scroll-wrapper-content">
-        {/* Sticky Sparkles container locked to viewport height */}
+        {/* Fixed Sparkles container locked to viewport to prevent scroll gaps */}
         <div 
-          className="sparkles-sticky-container"
-          style={{ opacity: scrollOpacity }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            zIndex: 1,
+            pointerEvents: "none",
+            opacity: scrollOpacity,
+            overflow: "hidden"
+          }}
         >
           <SparklesCore
             id="tsparticles-home"
@@ -129,12 +138,12 @@ export default function Home() {
             color="#0d0f12"
             transitionColor="#F6D337"
             noiseScale={0.37}
-            noiseIntensity={0.35}
-            scrollSensitivity={0.8}
-            baseAnimationSpeed={0.8}
+            noiseIntensity={0.25}
+            scrollSensitivity={0.15}
+            baseAnimationSpeed={0.25}
             edgeSoftness={0.4}
-            bloomIntensity={0.8}
-            bloomRadius={0.4}
+            bloomIntensity={0.6}
+            bloomRadius={0.25}
             parallaxEnabled={true}
             movement={{ horizontal: "center", vertical: 0.5 }}
           />
