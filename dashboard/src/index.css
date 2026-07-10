@@ -925,24 +925,16 @@ code, .mono {
   box-shadow: 0 -20px 40px rgba(0, 0, 0, 0.8);
 }
 
-/* ── Burning transition edge preceding content ── */
-.burn-transition-edge {
+/* ── Dynamic WebGL Burn Transition ── */
+.burn-transition-webgl {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  height: 150px;
+  height: 300px;
   transform: translateY(-100%);
-  background: #0d0f12;
   pointer-events: none;
   z-index: 3;
-  
-  /* Mask gradient to fade the edge from solid to transparent */
-  mask-image: linear-gradient(to top, rgba(0,0,0,1) 15%, rgba(0,0,0,0) 100%);
-  -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 15%, rgba(0,0,0,0) 100%);
-
-  /* Apply SVG turbulence displacement map to distort the mask into a rough paper-burn edge */
-  filter: url(#burn-noise);
 }
 
 /* Full-viewport background video */
@@ -2031,35 +2023,4 @@ code, .mono {
   height: 100%;
   z-index: 1;
   pointer-events: none;
-}
-
-.burn-svg-filters {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-}
-
-.burn-ember-line {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(246, 211, 55, 0.4) 10%,
-    rgba(255, 140, 0, 0.85) 25%,
-    rgba(255, 69, 0, 1) 40%,
-    rgba(246, 211, 55, 1) 50%,
-    rgba(255, 69, 0, 1) 60%,
-    rgba(255, 140, 0, 0.85) 75%,
-    rgba(246, 211, 55, 0.4) 90%,
-    transparent 100%
-  );
-  box-shadow:
-    0 0 10px 3px rgba(255, 69, 0, 0.8),
-    0 0 25px 6px rgba(246, 211, 55, 0.45),
-    0 0 50px 10px rgba(255, 140, 0, 0.2);
-  transform: translateY(50%);
 }

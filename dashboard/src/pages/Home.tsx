@@ -16,32 +16,12 @@ import {
 } from "lucide-react";
 import JwalaLogo from "../components/JwalaLogo";
 import { SparklesCore } from "../components/SparklesCore";
+import WebGLBurnTransition from "../components/WebGLBurnTransition";
 
 export default function Home() {
 
   return (
     <>
-      {/* SVG noise filter for the organic, burning edge border */}
-      <svg className="burn-svg-filters" aria-hidden="true">
-        <defs>
-          <filter id="burn-noise" x="-20%" y="-20%" width="140%" height="140%">
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.035"
-              numOctaves="4"
-              seed="8"
-              result="noise"
-            />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="noise"
-              scale="35"
-              xChannelSelector="R"
-              yChannelSelector="G"
-            />
-          </filter>
-        </defs>
-      </svg>
 
       {/* ── Sticky Hero (locks in the background) ── */}
       <section className="home-hero">
@@ -122,9 +102,21 @@ export default function Home() {
           />
         </div>
 
-        {/* The active burning paper edge with ember line */}
-        <div className="burn-transition-edge">
-          <div className="burn-ember-line" />
+        {/* Dynamic WebGL burn transition edge */}
+        <div className="burn-transition-webgl">
+          <WebGLBurnTransition
+            color="#0d0f12"
+            transitionColor="#F6D337"
+            noiseScale={0.37}
+            noiseIntensity={0.3}
+            scrollSensitivity={0.4}
+            baseAnimationSpeed={0.1}
+            edgeSoftness={0.4}
+            bloomIntensity={0.5}
+            bloomRadius={0.1}
+            parallaxEnabled={true}
+            movement={{ horizontal: "center", vertical: 0.5 }}
+          />
         </div>
 
         <div className="home-container">
