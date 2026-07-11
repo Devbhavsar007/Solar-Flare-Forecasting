@@ -475,10 +475,10 @@ export default function WebGLBurnTransition({
                      
     if (hasBloom && extractProgramRef.current && extractFramebufferRef.current && extractTextureRef.current) {
       renderScene(framebufferRef.current);
-      renderExtract(sceneTextureRef.current, extractFramebufferRef.current);
-      renderBlur(extractTextureRef.current, blurFramebuffer1Ref.current, [1, 0]);
-      renderBlur(blurTexture1Ref.current, blurFramebuffer2Ref.current, [0, 1]);
-      renderComposite(sceneTextureRef.current, blurTexture2Ref.current);
+      renderExtract(sceneTextureRef.current!, extractFramebufferRef.current);
+      renderBlur(extractTextureRef.current!, blurFramebuffer1Ref.current, [1, 0]);
+      renderBlur(blurTexture1Ref.current!, blurFramebuffer2Ref.current, [0, 1]);
+      renderComposite(sceneTextureRef.current!, blurTexture2Ref.current!);
     } else {
       renderScene(null);
     }

@@ -865,6 +865,7 @@ code, .mono {
   padding: 0 24px;
   position: relative;
   z-index: 2;
+  background: #0d0f12;
 }
 
 .section-header { text-align: center; margin-bottom: 72px; }
@@ -921,8 +922,18 @@ code, .mono {
   position: relative;
   z-index: 2;
   margin-top: 100vh; /* Pushes content below the viewport on load */
-  background: #0d0f12; /* Solid color to completely cover the video */
-  box-shadow: 0 -20px 40px rgba(0, 0, 0, 0.8);
+}
+
+/* Solid backdrop that sits behind all scroll-wrapper children.
+   Prevents the fixed video hero from bleeding through on fast scroll. */
+.scroll-wrapper-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #0d0f12;
+  z-index: 0;
 }
 
 /* ── Dynamic WebGL Burn Transition ── */
@@ -934,7 +945,7 @@ code, .mono {
   height: 100vh;
   transform: translateY(-100%);
   pointer-events: none;
-  z-index: 3;
+  z-index: 5;
 }
 
 /* Full-viewport background video */
@@ -1104,7 +1115,7 @@ code, .mono {
 
 /* ── Callout ── */
 .home-callout {
-  padding: 120px 0;
+  padding: 80px 0 60px 0;
   border-bottom: 1px solid var(--border-color);
   text-align: center;
 }
@@ -1121,7 +1132,7 @@ code, .mono {
 
 /* ── Traits ── */
 .home-traits {
-  padding: 140px 0;
+  padding: 100px 0;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -1609,6 +1620,170 @@ code, .mono {
 }
 
 .footer-links a:hover { color: #F6D337; }
+
+/* ── Parallax Callout (fixed text revealed by burn transition) ── */
+.parallax-callout-wrapper {
+  position: relative;
+  z-index: 3;
+  height: 80vh;
+  pointer-events: none;
+}
+
+.parallax-callout-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+/* ── Scroll-reveal parallax system ── */
+
+/* Base state: elements start invisible and offset */
+.parallax-section {
+  opacity: 0;
+  transform: translateY(60px);
+  transition:
+    opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.parallax-section.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Staggered children inside grids — each child animates individually */
+.parallax-section .trait-card,
+.parallax-section .goal-card,
+.parallax-section .event-card,
+.parallax-section .dimension-col,
+.parallax-section .slo-card,
+.parallax-section .credential-col {
+  opacity: 0;
+  transform: translateY(40px) scale(0.97);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.parallax-section.revealed .trait-card,
+.parallax-section.revealed .goal-card,
+.parallax-section.revealed .event-card,
+.parallax-section.revealed .dimension-col,
+.parallax-section.revealed .slo-card,
+.parallax-section.revealed .credential-col {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Stagger delays for children (up to 7 for traits grid) */
+.parallax-section.revealed .trait-card:nth-child(1),
+.parallax-section.revealed .goal-card:nth-child(1),
+.parallax-section.revealed .event-card:nth-child(1),
+.parallax-section.revealed .dimension-col:nth-child(1),
+.parallax-section.revealed .slo-card:nth-child(1),
+.parallax-section.revealed .credential-col:nth-child(1) { transition-delay: 0.05s; }
+
+.parallax-section.revealed .trait-card:nth-child(2),
+.parallax-section.revealed .goal-card:nth-child(2),
+.parallax-section.revealed .event-card:nth-child(2),
+.parallax-section.revealed .dimension-col:nth-child(2),
+.parallax-section.revealed .slo-card:nth-child(2),
+.parallax-section.revealed .credential-col:nth-child(2) { transition-delay: 0.12s; }
+
+.parallax-section.revealed .trait-card:nth-child(3),
+.parallax-section.revealed .goal-card:nth-child(3),
+.parallax-section.revealed .event-card:nth-child(3),
+.parallax-section.revealed .dimension-col:nth-child(3),
+.parallax-section.revealed .slo-card:nth-child(3),
+.parallax-section.revealed .credential-col:nth-child(3) { transition-delay: 0.19s; }
+
+.parallax-section.revealed .trait-card:nth-child(4),
+.parallax-section.revealed .goal-card:nth-child(4),
+.parallax-section.revealed .event-card:nth-child(4),
+.parallax-section.revealed .dimension-col:nth-child(4),
+.parallax-section.revealed .slo-card:nth-child(4),
+.parallax-section.revealed .credential-col:nth-child(4) { transition-delay: 0.26s; }
+
+.parallax-section.revealed .trait-card:nth-child(5),
+.parallax-section.revealed .goal-card:nth-child(5),
+.parallax-section.revealed .slo-card:nth-child(5),
+.parallax-section.revealed .credential-col:nth-child(5) { transition-delay: 0.33s; }
+
+.parallax-section.revealed .trait-card:nth-child(6),
+.parallax-section.revealed .goal-card:nth-child(6),
+.parallax-section.revealed .slo-card:nth-child(6) { transition-delay: 0.40s; }
+
+.parallax-section.revealed .trait-card:nth-child(7) { transition-delay: 0.47s; }
+
+/* ── Continuous parallax depth layers ── */
+/* Elements with data-parallax-speed get translateY adjusted by JS */
+[data-parallax-speed] {
+  will-change: transform;
+  transition: none; /* JS controls transform directly */
+}
+
+/* Section header special entrance */
+.parallax-section .section-header {
+  opacity: 0;
+  transform: translateY(30px) scale(0.98);
+  transition:
+    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.parallax-section.revealed .section-header {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Pitch container parallax entrance */
+.parallax-section .pitch-container {
+  opacity: 0;
+  transform: translateY(50px);
+  transition:
+    opacity 1s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.parallax-section.revealed .pitch-container {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0.1s;
+}
+
+/* Newsletter card special scale-up */
+.parallax-section .newsletter-card {
+  opacity: 0;
+  transform: translateY(40px) scale(0.95);
+  transition:
+    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.parallax-section.revealed .newsletter-card {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition-delay: 0.08s;
+}
+
+/* Footer slide-up */
+.parallax-section.footer-reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition:
+    opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.parallax-section.footer-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
 
 /* ── Responsive ── */
 @media (max-width: 1024px) {

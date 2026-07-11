@@ -2,7 +2,6 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import NavBar from "./components/NavBar";
 import { LiveDataProvider } from "./context/LiveDataContext";
-import { SparklesCore } from "./components/SparklesCore";
 import "./index.css";
 
 const Home = lazy(() => import("./pages/Home"));
