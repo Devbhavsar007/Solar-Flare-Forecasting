@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -23,11 +23,14 @@ import BurnTransitionScroll from "../components/BurnTransitionScroll";
 type NewsletterState = "idle" | "submitting" | "success" | "error";
 
 export default function Home() {
-  const [sparkleClip, setSparkleClip] = useState("inset(100% 0 0 0)");
   const [videoHidden, setVideoHidden] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [email, setEmail] = useState("");
   const [newsletterState, setNewsletterState] = useState<NewsletterState>("idle");
+
+  // Burn progress ref: written by scroll handler, read directly by the
+  // WebGL render loop at 60fps — no React re-renders in the hot path.
+  const burnProgressRef = useRef(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -35,12 +38,17 @@ export default function Home() {
   const parallaxEls = useRef<Set<HTMLElement>>(new Set());
   const rafId = useRef<number>(0);
 
+  // Smoothed (lerped) burn progress for sparkle clip
+  const sparkleContainerRef = useRef<HTMLDivElement>(null);
+  const smoothBurnPctRef = useRef(0);
+  const animatingRef = useRef(false);
+
   // Ref callback: register any element with data-parallax-speed
   const parallaxRef = useCallback((node: HTMLElement | null) => {
     if (node) parallaxEls.current.add(node);
   }, []);
 
-  // ── Respect prefers-reduced-motion, and keep it live if the user toggles OS setting ──
+  // ── Respect prefers-reduced-motion ──
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => setPrefersReducedMotion(mq.matches);
@@ -49,53 +57,43 @@ export default function Home() {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  // Pause the hero video entirely for reduced-motion users instead of just hiding it
+  // Pause the hero video for reduced-motion users
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     if (prefersReducedMotion) {
       v.pause();
     } else {
-      v.play().catch(() => {
-        /* autoplay can be blocked; that's fine, video stays paused on first frame */
-      });
+      v.play().catch(() => {});
     }
   }, [prefersReducedMotion]);
 
+  // ── Reveal all parallax-sections synchronously ──
+  useLayoutEffect(() => {
+    document.querySelectorAll(".parallax-section").forEach((el) => {
+      el.classList.add("revealed");
+    });
+  }, []);
+
+  // ── Main scroll-driven animation loop ──
   useEffect(() => {
-    // ── IntersectionObserver for scroll-reveal (one-shot, cheap — leave as-is) ──
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("revealed");
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -60px 0px" }
-    );
-
-    const sections = document.querySelectorAll(".parallax-section");
-    sections.forEach((s) => observer.observe(s));
-
-    // Reduced-motion users get the final, settled layout with no continuous
-    // scroll-driven effects — sparkles fully visible, hero collapsed, no parallax.
     if (prefersReducedMotion) {
-      setSparkleClip("inset(0% 0 0 0)");
+      if (sparkleContainerRef.current) {
+        sparkleContainerRef.current.style.clipPath = "inset(0% 0 0 0)";
+        sparkleContainerRef.current.style.WebkitClipPath = "inset(0% 0 0 0)";
+      }
       setVideoHidden(true);
-      return () => observer.disconnect();
+      burnProgressRef.current = 1;
+      return;
     }
 
-    // ── Single rAF-gated function drives ALL scroll-derived state ──
-    // Previously sparkleClip/videoHidden were set synchronously per scroll
-    // event (many per frame on trackpads/120Hz displays), while only the
-    // parallax transform was rAF-throttled. That mismatch is what caused
-    // the extra re-renders. Everything now goes through one gate.
-    const updateScrollEffects = () => {
-      const scrollY = window.scrollY;
+    const LERP_FACTOR = 0.25; // snappy sparkle tracking
+    const SETTLE_EPSILON = 0.0015;
+
+    const tick = () => {
       const vh = window.innerHeight;
 
+      // Parallax
       parallaxEls.current.forEach((el) => {
         const speed = parseFloat(el.dataset.parallaxSpeed || "0");
         if (speed === 0) return;
@@ -106,24 +104,46 @@ export default function Home() {
         el.style.transform = `translateY(${offset}px)`;
       });
 
-      const contentTopInViewport = Math.max(0, vh - scrollY);
-      const clipPercent = (contentTopInViewport / vh) * 100;
-      setSparkleClip(`inset(${clipPercent}% 0 0 0)`);
-      setVideoHidden(scrollY >= vh);
+      // Burn progress: scrollY 0 → vh maps to progress 0 → 1
+      // Written to ref — the WebGL loop reads this directly, no re-render.
+      const rawProgress = Math.min(1, Math.max(0, window.scrollY / vh));
+      burnProgressRef.current = rawProgress;
+
+      // Smoothed version for sparkle clip (lerp to avoid jitter)
+      const current = smoothBurnPctRef.current;
+      const next = current + (rawProgress - current) * LERP_FACTOR;
+      smoothBurnPctRef.current = next;
+
+      const clipPct = (1 - next) * 100;
+      if (sparkleContainerRef.current) {
+        const inset = `inset(${clipPct.toFixed(2)}% 0 0 0)`;
+        sparkleContainerRef.current.style.clipPath = inset;
+        sparkleContainerRef.current.style.WebkitClipPath = inset;
+      }
+      setVideoHidden(rawProgress >= 1);
+
+      if (Math.abs(rawProgress - next) > SETTLE_EPSILON) {
+        rafId.current = requestAnimationFrame(tick);
+      } else {
+        animatingRef.current = false;
+      }
     };
 
-    const handleScroll = () => {
-      cancelAnimationFrame(rafId.current);
-      rafId.current = requestAnimationFrame(updateScrollEffects);
+    const wake = () => {
+      if (!animatingRef.current) {
+        animatingRef.current = true;
+        cancelAnimationFrame(rafId.current);
+        rafId.current = requestAnimationFrame(tick);
+      }
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
+    window.addEventListener("scroll", wake, { passive: true });
+    wake(); // establish initial state
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
-      observer.disconnect();
+      window.removeEventListener("scroll", wake);
       cancelAnimationFrame(rafId.current);
+      animatingRef.current = false;
     };
   }, [prefersReducedMotion]);
 
@@ -212,13 +232,13 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Scroll affordance — full-viewport video hero gives no other signal
-            that ~3000px of content follows. Skipped for reduced-motion since
-            the bounce animation is itself motion; the click target still
-            works, it just doesn't animate (add .no-bounce in CSS). */}
+        {/* Self-contained: inline styles + one scoped <style> tag for the
+            bounce keyframe. Does not depend on .hero-scroll-cue existing in
+            your stylesheet — if that CSS was never added, this still
+            renders correctly instead of falling back to an unstyled,
+            layout-shifting default button. */}
         <button
           type="button"
-          className={`hero-scroll-cue${prefersReducedMotion ? " no-bounce" : ""}`}
           onClick={() =>
             window.scrollTo({
               top: window.innerHeight,
@@ -226,9 +246,32 @@ export default function Home() {
             })
           }
           aria-label="Scroll to learn more"
+          style={{
+            position: "absolute",
+            bottom: 32,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "none",
+            border: "none",
+            color: "inherit",
+            opacity: 0.7,
+            cursor: "pointer",
+            padding: 8,
+            lineHeight: 0,
+            zIndex: 2,
+            animation: prefersReducedMotion
+              ? "none"
+              : "jwalaHeroScrollBounce 2s infinite",
+          }}
         >
           <ChevronDown size={22} aria-hidden="true" />
         </button>
+        <style>{`
+          @keyframes jwalaHeroScrollBounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(8px); }
+          }
+        `}</style>
       </section>
 
       {/* ── Content Wrapper (scrolls over the sticky Hero) ── */}
@@ -236,6 +279,7 @@ export default function Home() {
         <div className="scroll-wrapper-backdrop" />
 
         <div
+          ref={sparkleContainerRef}
           style={{
             position: "fixed",
             top: 0,
@@ -244,8 +288,8 @@ export default function Home() {
             height: "100vh",
             zIndex: 1,
             pointerEvents: "none",
-            clipPath: sparkleClip,
-            WebkitClipPath: sparkleClip,
+            clipPath: "inset(100% 0 0 0)",
+            WebkitClipPath: "inset(100% 0 0 0)",
             overflow: "hidden",
           }}
         >
@@ -266,15 +310,13 @@ export default function Home() {
         {!prefersReducedMotion && (
           <div className="burn-transition-webgl">
             <BurnTransitionScroll
-              startFraction={0.0}
-              endFraction={0.65}
+              progressRef={burnProgressRef}
               fillColor="#0d0f12"
               emberColor="#F6D337"
               glowColor="#FF6A00"
               edgeWidth={0.08}
               noiseScale={4.0}
               flicker={0.65}
-              invert={true}
               style={{ width: "100%", height: "100%" }}
             />
           </div>
@@ -706,7 +748,20 @@ export default function Home() {
                 solar events directly in your inbox.
               </p>
               <form className="newsletter-form" onSubmit={handleNewsletterSubmit}>
-                <label htmlFor="newsletter-email" className="sr-only">
+                <label
+                  htmlFor="newsletter-email"
+                  style={{
+                    position: "absolute",
+                    width: 1,
+                    height: 1,
+                    padding: 0,
+                    margin: -1,
+                    overflow: "hidden",
+                    clip: "rect(0,0,0,0)",
+                    whiteSpace: "nowrap",
+                    border: 0,
+                  }}
+                >
                   Email address
                 </label>
                 <input
@@ -727,11 +782,16 @@ export default function Home() {
                   {newsletterState === "submitting"
                     ? "Subscribing…"
                     : newsletterState === "success"
-                    ? "Subscribed ✓"
-                    : "Subscribe"}
+                      ? "Subscribed ✓"
+                      : "Subscribe"}
                 </button>
               </form>
-              <p className="newsletter-status" role="status" aria-live="polite">
+              <p
+                className="newsletter-status"
+                role="status"
+                aria-live="polite"
+                style={{ minHeight: "1.2em", marginTop: 8, fontSize: "0.9rem" }}
+              >
                 {newsletterState === "success" &&
                   "You're on the list. Alerts will land in your inbox."}
                 {newsletterState === "error" &&

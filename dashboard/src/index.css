@@ -1634,9 +1634,22 @@ code, .mono {
   top: 0;
   height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  padding-top: 5vh; /* Keep it close to the top */
   justify-content: center;
   pointer-events: auto;
+}
+
+/* ── TSParticles Utility ── */
+.tsparticles-full {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+.tsparticles-full canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* ── Scroll-reveal parallax system ── */

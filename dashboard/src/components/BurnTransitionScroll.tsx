@@ -1,39 +1,44 @@
 import {
     startTransition,
-    useCallback,
     useEffect,
     useMemo,
     useRef,
     useState,
 } from "react";
-import type { CSSProperties } from "react";
-import { useScroll, useTransform } from "framer-motion";
+import type { CSSProperties, RefObject } from "react";
 
-// onScroll-only burn transition. Progress is derived from THIS element's
-// transit through the viewport (via useScroll target+offset), not from
-// absolute page scrollY. Self-calibrating: no pixel tuning per placement.
+/**
+ * WebGL burn-transition overlay.
+ *
+ * `progress` (0→1) controls how far the burn has advanced:
+ *   - 0 = fully transparent (nothing burned yet)
+ *   - 1 = fully opaque fill color (everything burned/covered)
+ *
+ * The parent is responsible for deriving `progress` from scroll position
+ * (or any other signal). This component does NOT use useScroll internally
+ * because its layout position can be shifted by CSS transforms (e.g.
+ * translateY(-100%)), which makes Framer Motion's layout-based scroll
+ * tracking report wrong values.
+ */
 
-interface MyComponentProps {
-    startFraction: number;
-    endFraction: number;
+interface BurnTransitionProps {
+    /** Ref holding 0→1 burn progress, written by the parent's scroll handler.
+     *  Using a ref instead of a prop avoids React re-renders on every scroll
+     *  frame — the WebGL loop reads it directly at 60fps with zero latency. */
+    progressRef: RefObject<number>;
     fillColor: string;
     emberColor: string;
     glowColor: string;
     edgeWidth: number;
     noiseScale: number;
     flicker: number;
-    invert: boolean;
     style?: CSSProperties;
-}
-
-function clamp01(value: number): number {
-    return Math.max(0, Math.min(1, value));
 }
 
 function parseColorToRGB(color: string): [number, number, number] {
     if (!color || color.trim() === "") return [0, 0, 0];
     const str = color.trim();
-    
+
     const rgbaMatch = str.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)/i);
     if (rgbaMatch) {
         return [
@@ -42,7 +47,7 @@ function parseColorToRGB(color: string): [number, number, number] {
             Math.max(0, Math.min(255, parseFloat(rgbaMatch[3]))) / 255
         ];
     }
-    
+
     const hex = str.replace(/^#/, "");
     if (hex.length === 6 || hex.length === 8) {
         return [
@@ -58,7 +63,7 @@ function parseColorToRGB(color: string): [number, number, number] {
             parseInt(hex[2] + hex[2], 16) / 255
         ];
     }
-    
+
     if (typeof window !== "undefined" && typeof document !== "undefined") {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
@@ -78,17 +83,15 @@ function parseColorToRGB(color: string): [number, number, number] {
     return [1, 1, 1];
 }
 
-export default function BurnTransitionScroll(props: MyComponentProps) {
+export default function BurnTransitionScroll(props: BurnTransitionProps) {
     const {
-        startFraction,
-        endFraction,
+        progressRef: externalProgressRef,
         fillColor,
         emberColor,
         glowColor,
         edgeWidth,
         noiseScale,
         flicker,
-        invert,
         style,
     } = props;
 
@@ -97,31 +100,6 @@ export default function BurnTransitionScroll(props: MyComponentProps) {
     const frameRef = useRef<number>(0);
     const observerRef = useRef<ResizeObserver | null>(null);
     const [hasWebGL, setHasWebGL] = useState(true);
-    
-    // Adapted for standard React: environment targets are assumed stable
-    const isStatic = false;
-    const isCanvasTarget = false;
-    // useInView is disabled to ensure visual rendering despite container layout offsets
-    const inView = true;
-
-    // 0 when the element's top edge hits the viewport bottom,
-    // 1 when the element's bottom edge leaves the viewport top.
-    // This is relative to the element itself — no absolute pixel values.
-    const { scrollYProgress } = useScroll({
-        target: containerRef,
-        offset: ["start end", "end start"],
-    });
-
-    // startFraction/endFraction (0-1) let you narrow WHERE inside that
-    // transit window the burn actually happens — e.g. only burn during
-    // the middle 50% of the element's time on screen.
-    const safeEnd = Math.max(endFraction, startFraction + 0.001);
-    const burnProgress = useTransform(
-        scrollYProgress,
-        [startFraction, safeEnd],
-        [0, 1],
-        { clamp: true }
-    );
 
     const fillRGB = useMemo(() => parseColorToRGB(fillColor), [fillColor]);
     const emberRGB = useMemo(() => parseColorToRGB(emberColor), [emberColor]);
@@ -228,12 +206,6 @@ void main() {
         []
     );
 
-    const getProgress = useCallback((): number => {
-        const preview = isStatic || isCanvasTarget;
-        const progress = preview ? 0.45 : clamp01(burnProgress.get());
-        return invert ? 1 - progress : progress;
-    }, [burnProgress, invert, isStatic, isCanvasTarget]);
-
     useEffect(() => {
         if (typeof window === "undefined" || typeof document === "undefined")
             return;
@@ -257,6 +229,7 @@ void main() {
             gl.shaderSource(shader, source);
             gl.compileShader(shader);
             if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.warn("Shader compile error:", gl.getShaderInfoLog(shader));
                 gl.deleteShader(shader);
                 return null;
             }
@@ -322,21 +295,15 @@ void main() {
         observerRef.current = new ResizeObserver(() => resize());
         observerRef.current.observe(container);
 
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
         const startTime = performance.now();
         const loop = () => {
             frameRef.current = window.requestAnimationFrame(loop);
-            // Render unconditionally to bypass layout vs visual position discrepancies
 
             const t = (performance.now() - startTime) / 1000;
-            const progress = getProgress();
-
-            if (Math.random() < 0.01) {
-                console.log("WebGL loop values: progress=" + progress + 
-                            " scrollYProgress=" + scrollYProgress.get() + 
-                            " width=" + canvas.width + 
-                            " height=" + canvas.height + 
-                            " hasWebGL=" + (gl !== null));
-            }
+            const p = externalProgressRef.current ?? 0;
 
             gl.clearColor(0, 0, 0, 0);
             gl.clear(gl.COLOR_BUFFER_BIT);
@@ -344,7 +311,11 @@ void main() {
             gl.useProgram(program);
             gl.uniform2f(uResolution, canvas.width, canvas.height);
             gl.uniform1f(uTime, t);
-            gl.uniform1f(uProgress, progress);
+            // The shader treats progress=0 as "fully solid fill" and
+            // progress=1 as "fully burned away (transparent)".
+            // Our prop is the opposite: 0 = transparent, 1 = opaque.
+            // Invert it so the visual behavior matches expectations.
+            gl.uniform1f(uProgress, 1.0 - p);
             gl.uniform1f(uEdgeWidth, edgeWidth);
             gl.uniform1f(uNoiseScale, noiseScale);
             gl.uniform1f(uFlicker, flicker);
@@ -373,16 +344,7 @@ void main() {
         fillRGB,
         emberRGB,
         glowRGB,
-        inView,
-        isStatic,
-        isCanvasTarget,
-        getProgress,
     ]);
-
-    const fallbackProgress = useMemo(() => {
-        if (isStatic || isCanvasTarget) return invert ? 0.55 : 0.45;
-        return invert ? 1 : 0;
-    }, [isStatic, isCanvasTarget, invert]);
 
     return (
         <div
@@ -413,7 +375,7 @@ void main() {
                     position: "absolute",
                     inset: 0,
                     background: fillColor,
-                    opacity: hasWebGL ? 0 : 1 - fallbackProgress,
+                    opacity: hasWebGL ? 0 : (externalProgressRef.current ?? 0),
                     zIndex: 0,
                 }}
             />

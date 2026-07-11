@@ -4,10 +4,6 @@ import type { Container } from "@tsparticles/engine";
 import { loadSlim } from "@tsparticles/slim";
 import { motion, useAnimation } from "framer-motion";
 
-function cn(...classes: any[]) {
-  return classes.filter(Boolean).join(" ");
-}
-
 type ParticlesProps = {
   id?: string;
   className?: string;
@@ -415,11 +411,11 @@ export const SparklesCore = (props: ParticlesProps) => {
           } as any), [background, minSize, maxSize, speed, particleColor, particleDensity]);
 
   return (
-    <motion.div animate={controls} className={cn("opacity-0", className)}>
+    <motion.div initial={{ opacity: 0 }} animate={controls} className={className} style={{ width: "100%", height: "100%" }}>
       <ParticlesProvider init={particlesInit}>
         <Particles
           id={id || generatedId}
-          className={cn("h-full w-full")}
+          className="tsparticles-full"
           particlesLoaded={particlesLoaded}
           options={options}
         />
