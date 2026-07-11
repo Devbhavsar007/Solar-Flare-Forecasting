@@ -80,7 +80,7 @@ export default function Home() {
     if (prefersReducedMotion) {
       if (sparkleContainerRef.current) {
         sparkleContainerRef.current.style.clipPath = "inset(0% 0 0 0)";
-        sparkleContainerRef.current.style.WebkitClipPath = "inset(0% 0 0 0)";
+        sparkleContainerRef.current.style.setProperty("-webkit-clip-path", "inset(0% 0 0 0)");
       }
       setVideoHidden(true);
       burnProgressRef.current = 1;
@@ -118,7 +118,7 @@ export default function Home() {
       if (sparkleContainerRef.current) {
         const inset = `inset(${clipPct.toFixed(2)}% 0 0 0)`;
         sparkleContainerRef.current.style.clipPath = inset;
-        sparkleContainerRef.current.style.WebkitClipPath = inset;
+        sparkleContainerRef.current.style.setProperty("-webkit-clip-path", inset);
       }
       setVideoHidden(rawProgress >= 1);
 
