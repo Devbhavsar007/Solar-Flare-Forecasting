@@ -398,12 +398,6 @@
   box-sizing: border-box;
 }
 
-.jwala-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
 /* ── Cards Styling ───────────────────────────────────── */
 .jwala-card {
   background-color: var(--jwala-card-bg);
@@ -416,12 +410,6 @@
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.3s ease;
   display: flex;
   flex-direction: column;
-}
-
-.jwala-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--jwala-border-hover);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3), 0 0 15px rgba(246, 211, 55, 0.03);
 }
 
 .jwala-card-header {
@@ -458,649 +446,533 @@
   background-color: rgba(255, 255, 255, 0.05);
 }
 
-/* ── Card 1: Overview Balance & AI Assistant Glass ─────── */
-.jwala-balance-amount {
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  margin-bottom: 6px;
-  background: linear-gradient(135deg, #ffffff 0%, #d1d5db 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+/* ── API Section (Developer Portal) ───────────────────── */
+
+.api-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-.jwala-balance-change {
+.api-section-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
-  font-size: 0.72rem;
-  color: var(--jwala-text-secondary);
-  margin-bottom: 16px;
+  align-items: flex-start;
+  margin-bottom: 12px;
 }
 
-.jwala-change-pct {
-  color: var(--jwala-accent);
-  font-weight: 600;
-}
-
-.jwala-balance-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.72rem;
-  color: var(--jwala-text-secondary);
-  border-top: 1px solid var(--jwala-border);
-  padding-top: 12px;
-  margin-bottom: 16px;
-}
-
-.jwala-help-link {
-  color: var(--jwala-text-muted);
-  text-decoration: none;
+.api-section-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  transition: color 0.2s ease;
-}
-
-.jwala-help-link:hover {
+  gap: 6px;
+  background-color: rgba(246, 211, 55, 0.1);
   color: var(--jwala-accent);
-}
-
-.jwala-glass-widget {
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(246, 211, 55, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
-  border: 1px solid rgba(246, 211, 55, 0.1);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  align-items: center;
-  justify-content: center;
-  min-height: 180px;
-}
-
-.jwala-glass-widget-title {
-  font-size: 0.85rem;
+  padding: 6px 12px;
+  border-radius: 100px;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: var(--jwala-accent);
-  margin-bottom: 4px;
-  text-align: center;
-  z-index: 5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+  border: 1px solid rgba(246, 211, 55, 0.2);
 }
 
-.jwala-glass-widget-desc {
-  font-size: 0.72rem;
-  color: var(--jwala-text-secondary);
+.api-section-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #fff;
   margin-bottom: 12px;
-  text-align: center;
-  z-index: 5;
+  letter-spacing: -0.02em;
 }
 
-.jwala-glass-widget-img {
-  width: 100%;
-  height: 120px;
-  object-fit: contain;
-  filter: drop-shadow(0 8px 16px rgba(246, 211, 55, 0.15));
-  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  border-radius: 8px;
-}
-
-.jwala-glass-widget:hover .jwala-glass-widget-img {
-  transform: scale(1.04) rotate(1deg);
-}
-
-/* ── Card 2: Insurance & Health Metrics ────────────────── */
-.jwala-metric-box {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.jwala-metric-val {
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: #fff;
-}
-
-.jwala-metric-label {
-  font-size: 0.75rem;
+.api-section-desc {
+  font-size: 1rem;
   color: var(--jwala-text-secondary);
-  margin-top: 2px;
+  line-height: 1.6;
+  max-width: 650px;
 }
 
-.jwala-progress-circle-wrapper {
-  position: relative;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.jwala-circle-bg {
-  stroke: rgba(255, 255, 255, 0.05);
-}
-
-.jwala-circle-fill {
-  stroke: var(--jwala-accent);
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.6s ease;
-}
-
-.jwala-circle-text {
-  font-size: 10px;
-  font-weight: 700;
-  fill: #fff;
-}
-
-.jwala-metric-text-desc {
-  font-size: 0.72rem;
-  color: var(--jwala-text-muted);
-  line-height: 1.4;
-  margin-bottom: 18px;
-}
-
-.jwala-sub-metrics {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-
-.jwala-sub-metric {
-  flex: 1;
-  background-color: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--jwala-border);
-  border-radius: 12px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-}
-
-.jwala-sub-metric-val {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.jwala-sub-metric-ctrls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.jwala-ctrl-btn {
+.api-version-pill {
   background-color: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--jwala-border);
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--jwala-text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.jwala-ctrl-btn:hover {
-  background-color: var(--jwala-accent);
-  color: #000;
-  border-color: var(--jwala-accent);
-}
-
-.jwala-member-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-top: 1px solid var(--jwala-border);
-  padding-top: 14px;
-}
-
-.jwala-avatars-overlapping {
-  display: flex;
-  align-items: center;
-}
-
-.jwala-overlap-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 2px solid var(--jwala-card-bg);
-  margin-right: -8px;
-  object-fit: cover;
-  cursor: pointer;
-  transition: transform 0.2s ease, z-index 0.2s ease;
-  position: relative;
-}
-
-.jwala-overlap-avatar:hover {
-  transform: scale(1.15) translateY(-2px);
-  z-index: 10;
-}
-
-.jwala-member-add {
-  background-color: rgba(255, 255, 255, 0.04);
-  border: 1px dashed var(--jwala-border);
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--jwala-text-muted);
-  cursor: pointer;
-  font-size: 0.8rem;
-  transition: all 0.2s ease;
-}
-
-.jwala-member-add:hover {
-  border-color: var(--jwala-accent);
-  color: var(--jwala-accent);
-  background-color: rgba(246, 211, 55, 0.05);
-}
-
-/* Popover overlay for avatar details */
-.jwala-avatar-popover {
-  position: absolute;
-  bottom: 45px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: #1a1d26;
-  border: 1px solid var(--jwala-border-hover);
-  border-radius: 8px;
-  padding: 8px 12px;
-  width: 140px;
-  font-size: 0.7rem;
-  color: var(--jwala-text-primary);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-  z-index: 20;
-  text-align: center;
-}
-
-.jwala-avatar-popover::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 5px;
-  border-style: solid;
-  border-color: var(--jwala-border-hover) transparent transparent transparent;
-}
-
-/* ── Card 3: Smart Health Finance ─────────────────────── */
-.jwala-chart-select {
-  background-color: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--jwala-border);
-  color: var(--jwala-text-primary);
-  padding: 4px 8px;
-  border-radius: 8px;
-  font-size: 0.72rem;
-  outline: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.jwala-chart-select:hover {
-  border-color: var(--jwala-accent);
-}
-
-.jwala-chart-flex {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 10px;
-}
-
-.jwala-radial-chart-container {
-  width: 140px;
-  height: 140px;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.jwala-radial-center-text {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.jwala-radial-center-val {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #fff;
-}
-
-.jwala-radial-center-lbl {
-  font-size: 0.65rem;
-  color: var(--jwala-text-muted);
-}
-
-.jwala-radial-legend {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-left: 16px;
-}
-
-.jwala-legend-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.jwala-legend-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-top: 4px;
-  flex-shrink: 0;
-}
-
-.jwala-legend-text {
-  font-size: 0.75rem;
-  line-height: 1.2;
-}
-
-.jwala-legend-val {
-  font-weight: 700;
-  color: #fff;
-  margin-right: 4px;
-}
-
-.jwala-legend-lbl {
-  color: var(--jwala-text-secondary);
-}
-
-.jwala-line-chart-wrapper {
-  margin-top: 18px;
-  border-top: 1px solid var(--jwala-border);
-  padding-top: 14px;
-}
-
-.jwala-line-chart-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 8px;
-}
-
-.jwala-line-chart-val {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #fff;
-}
-
-.jwala-line-chart-change {
-  color: var(--jwala-green);
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-/* ── Card 4: Healthcare Financial Tracking ─────────────── */
-.jwala-tracking-limit {
-  font-size: 0.8rem;
-  color: var(--jwala-text-secondary);
-  margin-bottom: 6px;
-  display: flex;
-  justify-content: space-between;
-}
-
-.jwala-tracking-limit-val {
-  color: #fff;
-  font-weight: 700;
-}
-
-.jwala-multibar {
-  height: 10px;
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-  display: flex;
-  overflow: hidden;
-  margin-bottom: 16px;
-}
-
-.jwala-multibar-segment {
-  height: 100%;
-  transition: width 0.5s ease;
-}
-
-.jwala-tracking-categories {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 18px;
-}
-
-.jwala-category-pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.72rem;
-  color: var(--jwala-text-secondary);
-}
-
-.jwala-category-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-}
-
-.jwala-category-percentage {
-  color: var(--jwala-text-muted);
-}
-
-.jwala-insights-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.jwala-insight-pill {
-  background-color: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--jwala-border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.72rem;
-  color: var(--jwala-text-secondary);
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.jwala-insight-pill:hover {
-  background-color: rgba(255, 255, 255, 0.04);
-  border-color: var(--jwala-accent);
-}
-
-.jwala-insight-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.jwala-insight-text {
-  color: var(--jwala-text-primary);
-}
-
-.jwala-insight-icon {
-  width: 14px;
-  height: 14px;
-  color: var(--jwala-text-muted);
-}
-
-.jwala-insight-badge {
-  background-color: rgba(246, 211, 55, 0.08);
-  border: 1px solid rgba(246, 211, 55, 0.15);
-  color: var(--jwala-accent);
-  padding: 2px 6px;
-  border-radius: 6px;
-  font-size: 0.65rem;
-  font-weight: 600;
-}
-
-.jwala-insight-pill.verified {
-  border-color: rgba(16, 185, 129, 0.15);
-}
-
-.jwala-insight-pill.verified .jwala-insight-icon {
-  color: var(--jwala-green);
-}
-
-/* ── Card 5: Health Metrics / Table ──────────────────── */
-.jwala-table-search-wrapper {
-  position: relative;
-  margin-bottom: 14px;
-}
-
-.jwala-table-search {
-  width: 100%;
-  background-color: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--jwala-border);
-  border-radius: 8px;
-  padding: 8px 12px 8px 34px;
-  color: var(--jwala-text-primary);
-  font-size: 0.78rem;
-  outline: none;
-  transition: all 0.2s ease;
-}
-
-.jwala-table-search:focus {
-  border-color: var(--jwala-accent);
-  background-color: rgba(255, 255, 255, 0.04);
-}
-
-.jwala-table-search-icon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--jwala-text-muted);
-  width: 14px;
-  height: 14px;
-}
-
-.jwala-filter-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 16px;
-}
-
-.jwala-filter-tab {
-  background-color: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--jwala-border);
   padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.72rem;
-  color: var(--jwala-text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-weight: 500;
-}
-
-.jwala-filter-tab:hover {
-  background-color: rgba(255, 255, 255, 0.04);
-  color: var(--jwala-text-primary);
-}
-
-.jwala-filter-tab.active {
-  background-color: rgba(246, 211, 55, 0.08);
-  border-color: var(--jwala-accent);
-  color: var(--jwala-accent);
-}
-
-.jwala-table-container {
-  overflow-x: auto;
-}
-
-.jwala-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.jwala-table th {
-  padding: 8px 12px;
-  font-size: 0.7rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
   font-weight: 600;
-  text-transform: uppercase;
-  color: var(--jwala-text-muted);
-  border-bottom: 1px solid var(--jwala-border);
-}
-
-.jwala-table td {
-  padding: 12px;
-  font-size: 0.78rem;
   color: var(--jwala-text-primary);
-  border-bottom: 1px solid var(--jwala-border);
-  vertical-align: middle;
 }
 
-.jwala-table tr:last-child td {
-  border-bottom: none;
+/* Stats Row */
+.api-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
 }
 
-.jwala-table tr {
-  transition: background-color 0.2s ease;
+.api-stat-card {
+  background-color: var(--jwala-card-bg);
+  border: 1px solid var(--jwala-border);
+  border-radius: 12px;
+  padding: 16px;
 }
 
-.jwala-table tr:hover td {
-  background-color: rgba(255, 255, 255, 0.01);
-}
-
-.jwala-status-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 100px;
-  font-size: 0.65rem;
+.api-stat-val {
+  font-size: 1.4rem;
   font-weight: 700;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: opacity 0.2s ease;
+  color: #fff;
+  margin-bottom: 4px;
 }
 
-.jwala-status-pill:hover {
-  opacity: 0.85;
+.api-stat-label {
+  font-size: 0.75rem;
+  color: var(--jwala-text-secondary);
 }
 
-.jwala-status-pill.paid {
-  background-color: var(--jwala-green-bg);
+/* API Key Card */
+.api-key-card {
+  background: linear-gradient(135deg, rgba(20, 22, 28, 1) 0%, rgba(20, 22, 28, 0.5) 100%);
+  border: 1px solid var(--jwala-border);
+  border-radius: 14px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.api-key-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background-color: var(--jwala-accent);
+}
+
+.api-key-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.api-key-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--jwala-text-primary);
+}
+
+.api-key-active-badge {
+  background-color: rgba(16, 185, 129, 0.1);
   color: var(--jwala-green);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
   border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
-.jwala-status-pill.claimed {
-  background-color: var(--jwala-teal-bg);
-  color: var(--jwala-teal);
-  border: 1px solid rgba(20, 184, 166, 0.2);
+.api-key-display {
+  display: flex;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  justify-content: space-between;
 }
 
-.jwala-status-pill.pending {
-  background-color: var(--jwala-amber-bg);
-  color: var(--jwala-amber);
-  border: 1px solid rgba(245, 158, 11, 0.2);
+.api-key-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.95rem;
+  color: #fff;
+  letter-spacing: 0.05em;
 }
 
-/* ── Card 6: Interactive AI Assistant Chat ────────────── */
+.api-key-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.api-key-btn {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--jwala-text-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.api-key-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.api-key-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 0.75rem;
+  color: var(--jwala-text-muted);
+}
+
+/* Endpoints & Code Section */
+.api-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.api-endpoints-card, .api-code-card {
+  background-color: var(--jwala-card-bg);
+  border: 1px solid var(--jwala-border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.api-card-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--jwala-border);
+}
+
+.api-card-hdg {
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.api-endpoint-count {
+  font-size: 0.75rem;
+  color: var(--jwala-text-muted);
+}
+
+.api-endpoints-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.api-endpoints-list::-webkit-scrollbar { width: 4px; }
+.api-endpoints-list::-webkit-scrollbar-thumb { background: var(--jwala-border); border-radius: 2px; }
+
+.api-endpoint-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  transition: background-color 0.2s ease;
+}
+
+.api-endpoint-row:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.api-endpoint-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.api-method-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  width: max-content;
+}
+
+.method-get { background-color: rgba(16, 185, 129, 0.1); color: var(--jwala-green); border: 1px solid rgba(16, 185, 129, 0.2); }
+.method-post { background-color: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); }
+
+.api-endpoint-path {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: #fff;
+}
+
+.api-endpoint-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+  max-width: 50%;
+}
+
+.api-endpoint-desc {
+  font-size: 0.75rem;
+  color: var(--jwala-text-secondary);
+  line-height: 1.3;
+}
+
+.api-status-badge {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.status-stable { background-color: rgba(255, 255, 255, 0.05); color: var(--jwala-text-secondary); }
+.status-beta { background-color: rgba(245, 158, 11, 0.1); color: var(--jwala-amber); }
+
+/* Code Card */
+.api-code-tabs {
+  display: flex;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--jwala-border);
+}
+
+.api-code-tab {
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  color: var(--jwala-text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.api-code-tab:hover {
+  color: var(--jwala-text-secondary);
+}
+
+.api-code-tab.active {
+  color: var(--jwala-accent);
+  border-bottom-color: var(--jwala-accent);
+}
+
+.api-code-block {
+  background-color: #0d0f12;
+  flex: 1;
+  padding: 20px;
+  position: relative;
+  overflow-x: auto;
+}
+
+.api-code-block pre {
+  margin: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #e5e7eb;
+}
+
+.api-code-copy {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.api-code-copy:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Info Cards */
+.api-info-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.api-info-card {
+  background-color: var(--jwala-card-bg);
+  border: 1px solid var(--jwala-border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.api-info-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px 0;
+}
+
+.api-info-desc {
+  font-size: 0.78rem;
+  color: var(--jwala-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.api-info-code code {
+  display: block;
+  background-color: rgba(0, 0, 0, 0.3);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.api-rate-limits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.api-rate-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--jwala-text-secondary);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+  padding-bottom: 4px;
+}
+
+.api-rate-row:last-child {
+  border-bottom: none;
+}
+
+.api-rate-val {
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── AI Insights ──────────────────────────────────────── */
+
+.ai-insights-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.ai-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.ai-insight-card {
+  background-color: var(--jwala-card-bg);
+  border: 1px solid var(--jwala-border);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.ai-insight-card:hover {
+  transform: translateY(-2px);
+}
+
+.insight-warning { border-top: 3px solid var(--jwala-amber); }
+.insight-success { border-top: 3px solid var(--jwala-green); }
+.insight-info { border-top: 3px solid var(--jwala-accent); }
+
+.ai-insight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.ai-insight-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.ai-insight-confidence {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  background-color: rgba(255, 255, 255, 0.03);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.ai-insight-pct {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ai-insight-label {
+  font-size: 0.6rem;
+  color: var(--jwala-text-muted);
+  text-transform: uppercase;
+}
+
+.ai-insight-desc {
+  font-size: 0.8rem;
+  color: var(--jwala-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.ai-insight-bar {
+  height: 4px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ai-insight-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.insight-warning .ai-insight-bar-fill { background-color: var(--jwala-amber); }
+.insight-success .ai-insight-bar-fill { background-color: var(--jwala-green); }
+.insight-info .ai-insight-bar-fill { background-color: var(--jwala-accent); }
+
+/* ── AI Assistant (Chat) ──────────────────────────────── */
+
+.ai-assistant-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
 .jwala-chat-container {
   display: flex;
   flex-direction: column;
-  height: 380px;
+  height: 500px; /* Taller for dedicated page */
   justify-content: space-between;
 }
 
@@ -1131,14 +1003,8 @@
 }
 
 @keyframes messageSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .jwala-chat-msg.user {
@@ -1152,21 +1018,22 @@
 .jwala-msg-bubble {
   padding: 10px 14px;
   border-radius: 14px;
-  font-size: 0.78rem;
-  line-height: 1.4;
+  font-size: 0.85rem;
+  line-height: 1.5;
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .jwala-chat-msg.user .jwala-msg-bubble {
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--jwala-border);
   color: var(--jwala-text-primary);
   border-bottom-right-radius: 2px;
 }
 
 .jwala-chat-msg.assistant .jwala-msg-bubble {
-  background-color: rgba(246, 211, 55, 0.03);
-  border: 1px solid rgba(246, 211, 55, 0.1);
+  background-color: rgba(246, 211, 55, 0.04);
+  border: 1px solid rgba(246, 211, 55, 0.15);
   color: var(--jwala-text-primary);
   border-bottom-left-radius: 2px;
   position: relative;
@@ -1223,9 +1090,9 @@
 .jwala-chat-chip {
   background-color: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--jwala-border);
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: 100px;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--jwala-text-secondary);
   cursor: pointer;
   white-space: nowrap;
@@ -1244,7 +1111,7 @@
   background-color: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--jwala-border);
   border-radius: 100px;
-  padding: 4px 6px;
+  padding: 6px 8px;
   transition: all 0.2s ease;
 }
 
@@ -1288,8 +1155,8 @@
   background: none;
   border: none;
   color: var(--jwala-text-primary);
-  font-size: 0.78rem;
-  padding: 6px 12px;
+  font-size: 0.85rem;
+  padding: 8px 12px;
   outline: none;
 }
 
@@ -1297,8 +1164,8 @@
   background-color: var(--jwala-accent);
   color: #000;
   border: none;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1322,44 +1189,28 @@
 
 /* ── Responsive Styling ──────────────────────────────── */
 @media (max-width: 1200px) {
-  .jwala-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  .api-stats-row { grid-template-columns: repeat(2, 1fr); }
+  .api-two-col { grid-template-columns: 1fr; }
+  .api-info-row { grid-template-columns: 1fr; }
+  .ai-insights-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 900px) {
-  .jwala-dashboard-page {
-    flex-direction: column;
-  }
+  .jwala-dashboard-page { flex-direction: column; }
   .jwala-sidebar {
-    width: 100%;
-    height: auto;
-    position: relative;
-    border-right: none;
-    border-bottom: 1px solid var(--jwala-border);
+    width: 100%; height: auto; position: relative;
+    border-right: none; border-bottom: 1px solid var(--jwala-border);
   }
-  .jwala-main-panel {
-    height: auto;
-  }
+  .jwala-main-panel { height: auto; }
+  .ai-insights-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 680px) {
-  .jwala-grid {
-    grid-template-columns: 1fr;
-  }
+  .api-stats-row { grid-template-columns: 1fr; }
   .jwala-topbar {
-    padding: 16px 20px;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+    padding: 16px 20px; flex-direction: column; align-items: stretch; gap: 12px;
   }
-  .jwala-topbar-right {
-    justify-content: space-between;
-  }
-  .jwala-search-wrapper {
-    flex: 1;
-  }
-  .jwala-content {
-    padding: 16px 20px;
-  }
+  .jwala-topbar-right { justify-content: space-between; }
+  .jwala-search-wrapper { flex: 1; }
+  .jwala-content { padding: 16px 20px; }
 }
