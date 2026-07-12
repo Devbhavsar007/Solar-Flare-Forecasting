@@ -44,26 +44,30 @@ def apply_dead_time_correction(df: pd.DataFrame) -> pd.DataFrame:
     
     Model: N_obs = N_true * exp(-N_true * tau)
     Inverted numerically per time bin via Brent's method.
-    Saturated bins (> 1 / (e * tau)) are set to NaN and interpolated.
+    The function r*exp(-r*tau) is monotonically increasing on [0, 1/tau],
+    so brentq bracket is [0, 1/tau]. Bins at or above the theoretical
+    saturation rate are set to NaN and interpolated.
     """
     dead_time_us = COL["hel1os"].get("dead_time_us", 2.5)
     tau = dead_time_us * 1e-6
     saturation_rate = 1.0 / (np.e * tau)
+    # 1/tau is the peak of r*exp(-r*tau); the monotonic branch is [0, 1/tau]
+    r_max_bracket = 1.0 / tau
 
     def correct_single(n_obs: float) -> float:
         rate_obs = n_obs
         if rate_obs <= 0:
             return 0.0
-        if rate_obs >= saturation_rate:
-            return np.nan   # saturated — interpolate later
-        try:
-            return brentq(
-                lambda r: r * np.exp(-r * tau) - rate_obs,
-                0, saturation_rate * 5,
-                xtol=1e-7
-            )
-        except ValueError:
-            return n_obs
+        if rate_obs >= saturation_rate * 0.999:
+            # At or above theoretical maximum — no valid inversion exists.
+            # Return NaN so the interpolation step handles it, same as
+            # genuinely saturated bins. Do NOT silently pass through raw.
+            return np.nan
+        return brentq(
+            lambda r: r * np.exp(-r * tau) - rate_obs,
+            0, r_max_bracket,
+            xtol=1e-7
+        )
 
     corrected = df.copy()
     for col in ["counts_low", "counts_high"]:
@@ -162,23 +166,39 @@ def read_solexs(filepath: str) -> pd.DataFrame:
         time_raw = data[time_col].astype(float)
         counts = data[counts_col].astype(float)
 
-        # Determine the time reference epoch from FITS header
+        # Determine the time reference epoch from FITS header.
+        # MJDREFI is mandatory for Aditya-L1 files; a missing/zero value
+        # means the header is malformed and the silent Unix-epoch fallback
+        # would produce 1970-era timestamps with no error raised.
         mjdrefi = header.get("MJDREFI", 0)
         mjdreff = header.get("MJDREFF", 0.0)
         timezero = header.get("TIMEZERO", 0.0)
 
-        if mjdrefi > 0:
-            ref_mjd = mjdrefi + mjdreff
-            ref_time = Time(ref_mjd, format="mjd", scale="utc")
-            ref_timestamp = ref_time.to_datetime()
-            timestamps = pd.to_datetime(
-                time_raw + timezero, unit="s", origin=pd.Timestamp(ref_timestamp)
+        if mjdrefi <= 0:
+            raise KeyError(
+                f"MJDREFI missing or zero in SoLEXS FITS header ({filepath}).\n"
+                f"Without a valid epoch reference, timestamps cannot be computed.\n"
+                f"Available header keys: {list(header.keys())}\n"
+                f"Update configs/fits_columns.yaml or inspect the file."
             )
-        else:
-            timestamps = pd.to_datetime(time_raw, unit="s", origin="unix")
+
+        ref_mjd = mjdrefi + mjdreff
+        ref_time = Time(ref_mjd, format="mjd", scale="utc")
+        ref_timestamp = ref_time.to_datetime()
+        timestamps = pd.to_datetime(
+            time_raw + timezero, unit="s", origin=pd.Timestamp(ref_timestamp)
+        )
 
     df = pd.DataFrame({"counts": counts}, index=timestamps)
     df.index.name = "time"
+
+    # Sanity check: Aditya-L1 reached L1 / SoLEXS commissioning ~Sep 2023.
+    # Anything before that date is a timestamp-parsing bug, not real data.
+    assert timestamps.min() > pd.Timestamp("2023-09-01"), (
+        f"SoLEXS timestamp out of expected mission range: "
+        f"min={timestamps.min()} in {filepath}. "
+        f"This likely means MJDREFI/TIMEZERO were parsed incorrectly."
+    )
     
     df = df.replace([np.inf, -np.inf], np.nan).dropna().sort_index()
     
@@ -191,7 +211,15 @@ def read_solexs(filepath: str) -> pd.DataFrame:
 def merge_instruments(solexs_df: pd.DataFrame,
                       hel1os_df: pd.DataFrame,
                       cadence:    str = "1min") -> pd.DataFrame:
-    """Merge SoLEXS and HEL1OS DataFrames, resampling to a shared cadence."""
+    """Merge SoLEXS and HEL1OS DataFrames, resampling to a shared cadence.
+    
+    Aggregation: .mean() is correct for both instruments because:
+    - SoLEXS 'COUNTS' column is actually a rate (counts/sec) at native 1s
+      cadence (verified: TIME[1]-TIME[0] == 1.0s on real files). mean() of
+      a rate over a window gives the average rate, which is the correct
+      aggregation for resampling rates to a coarser cadence.
+    - HEL1OS 'CTR' (count rate) is similarly a rate, so mean() applies.
+    """
     return pd.concat([
         solexs_df.resample(cadence).mean(),
         hel1os_df.resample(cadence).mean()

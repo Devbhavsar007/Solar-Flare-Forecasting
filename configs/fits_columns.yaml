@@ -8,6 +8,10 @@
 # SDD1 has no lightcurve file (only .gti.gz). SDD2 is the primary data source.
 solexs:
   time_col: "TIME"
+  # COUNTS is a rate (counts/sec) at native 1s cadence.
+  # Verified: TIME[1]-TIME[0] == 1.0s on real files (86400 rows/day = 1s bins).
+  # At 1s cadence counts/bin == counts/sec numerically, but the column is a rate.
+  # Use .mean() (not .sum()) when resampling to coarser cadences.
   counts_col: "COUNTS"
   binary_table_ext: 1
 
