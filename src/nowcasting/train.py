@@ -100,10 +100,11 @@ def train_multiclass_nowcast(
     combined_tr = np.concatenate([tcn_tr, flat_tr], axis=1)
     combined_val = np.concatenate([tcn_val, flat_val], axis=1)
 
-    # Inverse class frequency for sample weights
+    # Inverse class frequency for sample weights — capped to prevent instability
     classes, counts = np.unique(y_tr, return_counts=True)
     freq = counts / counts.sum()
-    class_weights = {c: 1.0 / max(f, 1e-8) for c, f in zip(classes, freq)}
+    class_weights = {c: min((1.0 / max(f, 1e-8)) ** 0.5, 50.0) for c, f in zip(classes, freq)}
+    print(f"  Class weights (sqrt-dampened, capped at 50): {class_weights}")
     sample_weights = np.array([class_weights[y] for y in y_tr])
 
     # [RULE-5] multi:softprob, 4 classes
@@ -203,11 +204,11 @@ def optimize_per_class_thresholds(
 
         thresholds[cls_name] = best_t
 
-    # [Decision D8] X-class override: threshold must be ≤ M-class
+    # [Decision D8] X-class override: threshold must be less than or equal to M-class
     if thresholds["X"] > thresholds["M"]:
         thresholds["X"] = min(thresholds["M"] - 0.05, thresholds["X"])
         print(f"X-class threshold overridden to {thresholds['X']:.2f} "
-              f"(forced ≤ M={thresholds['M']:.2f})")
+              f"(forced less than or equal to M={thresholds['M']:.2f})")
 
     # Save to configs/nowcasting.yaml
     try:

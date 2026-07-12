@@ -69,9 +69,14 @@ def main():
             read_fail_files.append((zip_name, "No SDD2 .lc.gz found in zip"))
             continue
 
+        # Extract version from zip filename since it is lost in the extracted file basename
+        import re
+        match = re.search(r'_v(\d+\.\d+)\.zip$', zip_path)
+        version_tag = "v" + match.group(1) if match else "v1.0"
+
         # Read via fits_reader
         try:
-            df = read_solexs(lc_file)
+            df = read_solexs(lc_file, pradan_version=version_tag)
         except Exception as e:
             read_fail_files.append((zip_name, str(e)))
             # Clean up extracted file

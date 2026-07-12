@@ -79,6 +79,7 @@ def get_real_data():
     else:
         print(f"Found GOES files: {goes_files}. Loading...")
         goes_df = pd.concat([pd.read_parquet(f) for f in goes_files]).sort_index()
+        goes_df = goes_df[~goes_df.index.duplicated(keep='first')]
         if goes_df.index.tzinfo is None:
             goes_df.index = goes_df.index.tz_localize("UTC")
 
@@ -102,12 +103,40 @@ def get_real_data():
                 noaa_catalog=master_catalogue,
                 overlap_start=None, overlap_end=None
             )
-            goes_df["xrs_b_calibrated"] = apply_goes_calibration(goes_df["xrs_b"].values, calib)
+
+            # --- Task 2: Assign pradan_version to GOES rows ---
+            # SoLEXS has a pradan_version column covering 2024-02 onward.
+            # Derive GOES version from SoLEXS version by resampling to 1-min
+            # and forward-filling, then joining on the time index.
+            # GOES rows outside SoLEXS coverage default to "v1.0".
+            if "pradan_version" in solexs_df.columns:
+                version_1min = solexs_df["pradan_version"].resample("1min").last().dropna()
+                goes_df["pradan_version"] = version_1min.reindex(goes_df.index, method="nearest", tolerance=pd.Timedelta("2min"))
+                goes_df["pradan_version"] = goes_df["pradan_version"].fillna("v1.0")
+            else:
+                goes_df["pradan_version"] = "v1.0"
+
+            # Apply calibration per version group
+            goes_df["xrs_b_calibrated"] = goes_df.groupby("pradan_version")["xrs_b"].transform(
+                lambda s: apply_goes_calibration(s.values, calib, version=s.name)
+            )
             goes_df["xrs_a_calibrated"] = goes_df["xrs_a"]
+
+            # Verification: print per-version calibrated stats
+            print("\n--- Per-version calibration verification ---")
+            for v, grp in goes_df.groupby("pradan_version"):
+                n = len(grp)
+                if n > 0:
+                    raw_med = grp["xrs_b"].median()
+                    cal_med = grp["xrs_b_calibrated"].median()
+                    print(f"  {v}: n={n}, raw_median={raw_med:.4e}, calibrated_median={cal_med:.4e}")
+            print("---------------------------------------------\n")
+
         except Exception as e:
             print(f"Calibration fitting failed ({e}). Using raw flux.")
             goes_df["xrs_b_calibrated"] = goes_df["xrs_b"]
             goes_df["xrs_a_calibrated"] = goes_df["xrs_a"]
+            goes_df["pradan_version"] = "v1.0"
             calib = {"slope": 1.0, "intercept": 0.0, "calibrated": False, "n_samples": 0}
 
     # Save calibration to configs
@@ -125,14 +154,11 @@ def get_real_data():
     
     feature_cols = ["xrs_a_calibrated", "xrs_b_calibrated", "xrs_a", "xrs_b"]
     STEP = 15  # One window every 15 minutes to keep memory manageable on laptops
-    X, y_now, y_fore = create_windows(goes_df, feature_cols=feature_cols, window_size=60, horizon=15, step=STEP)
-    
-    # create_windows returns indices that map to the original df
-    # We need dates for the temporal split.
-    # With step, the window centers are at indices: 59, 59+step, 59+2*step, ...
-    dates = goes_df.index[60-1 : len(goes_df) - 15 : STEP]
-    # Trim to match X length in case of off-by-one
-    dates = dates[:len(X)]
+    X, y_now, y_fore, dates = create_windows(goes_df, feature_cols=feature_cols, window_size=60, horizon=15, step=STEP)
+
+    assert len(X) == len(y_now) == len(y_fore) == len(dates), \
+        f"MISALIGNED: X={len(X)} y_now={len(y_now)} y_fore={len(y_fore)} dates={len(dates)}"
+    print(f"Task 1 verified: {len(X)} windows, all arrays aligned")
 
     return X, y_now, dates
 
@@ -182,13 +208,14 @@ def main():
     tcn_test = np.empty((len(X_test), 0))
     
     # Print class distribution before training
-    print("\nClass Distribution:")
-    classes_names = {0: "N", 1: "C", 2: "M", 3: "X"}
-    tr_dist = pd.Series(y_tr).map(classes_names).value_counts().sort_index()
-    val_dist = pd.Series(y_val).map(classes_names).value_counts().sort_index()
-    dist_df = pd.DataFrame({"Train": tr_dist, "Val": val_dist}).fillna(0).astype(int)
-    print(dist_df.to_string())
-
+    print("\nClass Distribution (per-split window counts):")
+    counts = pd.DataFrame({
+        "Train": pd.Series(y_tr).value_counts(),
+        "Val": pd.Series(y_val).value_counts(),
+        "Test": pd.Series(y_test).value_counts()
+    }).fillna(0).astype(int)
+    print(counts)
+    
     # 4. Train Model (Handles class weighting internally; NO oversampling)
     print("\nTraining Multi-class Nowcaster...")
     model = train_multiclass_nowcast(
@@ -212,6 +239,15 @@ def main():
     proba_test = model.predict_proba(combined_test)
     n_test = len(y_test)
     
+    # Pad if XGBoost returned fewer than 4 classes (same fix as validation path)
+    if proba_test.shape[1] < 4:
+        print(f"Warning: XGBoost returned {proba_test.shape[1]} classes instead of 4 on test set. Padding.")
+        padded = np.zeros((n_test, 4))
+        for i, cls_label in enumerate(model.classes_):
+            if int(cls_label) < 4:
+                padded[:, int(cls_label)] = proba_test[:, i]
+        proba_test = padded
+    
     assert proba_test.shape == (n_test, 4), f"got {proba_test.shape}"
     
     # Vectorized threshold application (X > M > C priority)
@@ -221,13 +257,29 @@ def main():
     y_pred[proba_test[:, 3] >= thresholds.get("X", 0.5)] = 3
 
     class_names = ["N", "C", "M", "X"]
+    from sklearn.metrics import precision_score, confusion_matrix
+    precisions = precision_score(y_test, y_pred, average=None, zero_division=0)
     recalls = recall_score(y_test, y_pred, average=None, zero_division=0)
     f1s = f1_score(y_test, y_pred, average=None, zero_division=0)
+    cm = confusion_matrix(y_test, y_pred)
     
     print("\nTest Set Metrics (Per-Class):")
     for idx, cls_name in enumerate(class_names):
         if idx < len(recalls):
-            print(f"  {cls_name}-class | Recall: {recalls[idx]:.4f} | F1: {f1s[idx]:.4f}")
+            print(f"  {cls_name}-class | Precision: {precisions[idx]:.4f} | Recall: {recalls[idx]:.4f} | F1: {f1s[idx]:.4f}")
+            
+    print("\nConfusion Matrix (Rows: True, Cols: Pred):")
+    print(cm)
+    
+    # Persistence baseline
+    y_pers = np.concatenate(([y_test[0]], y_test[:-1]))
+    pers_prec = precision_score(y_test, y_pers, average=None, zero_division=0)
+    pers_rec = recall_score(y_test, y_pers, average=None, zero_division=0)
+    pers_f1 = f1_score(y_test, y_pers, average=None, zero_division=0)
+    print("\nPersistence Baseline Test Set Metrics (Per-Class):")
+    for idx, cls_name in enumerate(class_names):
+        if idx < len(pers_rec):
+            print(f"  {cls_name}-class | Precision: {pers_prec[idx]:.4f} | Recall: {pers_rec[idx]:.4f} | F1: {pers_f1[idx]:.4f}")
     
     # 7. Hash Generation
     print("\nGenerating model hashes...")

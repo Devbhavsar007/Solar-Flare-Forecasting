@@ -115,6 +115,11 @@ def fit_goes_solexs_calibration(goes_df: pd.DataFrame,
 
         model = HuberRegressor(epsilon=1.5, max_iter=500)
         model.fit(log_goes, log_solexs)
+        
+        if version == "v1.1":
+            trusted = 10 ** log_goes[~model.outliers_].ravel()
+            print(f"[v1.1 support] max GOES flux Huber trusted: {trusted.max():.2e}, n_outliers={model.outliers_.sum()}/{len(grp)}")
+
         r2 = model.score(log_goes, log_solexs)
 
         calib_v = {

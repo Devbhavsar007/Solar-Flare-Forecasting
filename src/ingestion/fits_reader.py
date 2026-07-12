@@ -140,7 +140,7 @@ def read_hel1os(filepath: str) -> pd.DataFrame:
     return apply_dead_time_correction(df)
 
 
-def read_solexs(filepath: str) -> pd.DataFrame:
+def read_solexs(filepath: str, pradan_version: str | None = None) -> pd.DataFrame:
     """Read a SoLEXS SDD lightcurve file (.lc.gz)."""
     _check_size_gate(filepath)
     
@@ -192,13 +192,7 @@ def read_solexs(filepath: str) -> pd.DataFrame:
     df = pd.DataFrame({"counts": counts}, index=timestamps)
     df.index.name = "time"
     
-    import re
-    basename = os.path.basename(filepath)
-    match = re.search(r'_v(\d+\.\d+)\.', basename)
-    if match:
-        df["pradan_version"] = "v" + match.group(1)
-    else:
-        df["pradan_version"] = "v1.0" # fallback
+    df["pradan_version"] = pradan_version or "v1.0"
 
     # Sanity check: Aditya-L1 reached L1 / SoLEXS commissioning ~Sep 2023.
     # Anything before that date is a timestamp-parsing bug, not real data.

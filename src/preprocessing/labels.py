@@ -48,20 +48,29 @@ def create_windows(df: pd.DataFrame,
                    window_size:  int = 60,
                    horizon:      int = 15,
                    step:         int = 1) -> tuple:
-    """Sliding window generator returning (X, y_now, y_fore).
+    """Sliding window generator returning (X, y_now, y_fore, dates).
 
     Downsamples N-class (label=0) windows by ``step`` while keeping
     100 % of C / M / X windows (label >= 1).  This prevents the
     uniform-step approach from discarding the vast majority of rare
     flare events.
+
+    Returns:
+        X:      (N, window_size, n_features) float32 array of input windows.
+        y_now:  (N,) int64 array of labels at the decision point.
+        y_fore: (N,) int64 array of labels at the forecast horizon.
+        dates:  pandas DatetimeIndex of length N — the decision-point
+                timestamp (df.index[i + window_size - 1]) for each
+                kept window, built inside the same loop as X.
     """
-    X, y_now, y_fore = [], [], []
+    X, y_now, y_fore, date_list = [], [], [], []
 
     # Filter for columns that actually exist
     available_cols = [c for c in feature_cols if c in df.columns]
 
     data   = df[available_cols].values
     labels = df["label"].values
+    index  = df.index  # keep reference for date extraction
 
     n_total = len(data) - window_size - horizon + 1
     if n_total <= 0:
@@ -69,6 +78,7 @@ def create_windows(df: pd.DataFrame,
             np.empty((0, window_size, len(available_cols)), dtype=np.float32),
             np.empty((0,), dtype=np.int64),
             np.empty((0,), dtype=np.int64),
+            pd.DatetimeIndex([], dtype="datetime64[ns, UTC]"),
         )
 
     for i in range(n_total):
@@ -82,9 +92,12 @@ def create_windows(df: pd.DataFrame,
             X.append(data[i:i + window_size])
             y_now.append(lbl_now)
             y_fore.append(lbl_fore)
+            date_list.append(index[i + window_size - 1])
 
     return (
         np.array(X,      dtype=np.float32),
         np.array(y_now,  dtype=np.int64),
         np.array(y_fore, dtype=np.int64),
+        pd.DatetimeIndex(date_list),
     )
+

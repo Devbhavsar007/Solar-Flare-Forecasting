@@ -1,17 +1,24 @@
 class_thresholds:
-  C: 0.1
+  C: 0.4
   M: 0.1
-  N: 0.1
-  X: 0.1
+  N: 0.6
+  X: 0.05
 dead_time_us: 2.5
 goes_calibration:
   v1.0:
-    intercept: 10.146692998414853
-    n_samples: 1038675
+    intercept: 10.321686553247146
+    n_samples: 910418
     overlap_end: '2026-07-09 23:59:59+00:00'
     overlap_start: '2024-02-01 00:00:01+00:00'
-    r2: 0.5367
-    slope: 1.4994126422212393
+    r2: 0.5481
+    slope: 1.5288970654099436
+  v1.1:
+    intercept: 6.228275413907263
+    n_samples: 128257
+    overlap_end: '2026-07-09 23:59:59+00:00'
+    overlap_start: '2024-02-01 00:00:01+00:00'
+    r2: 0.1821
+    slope: 0.7939876946253973
 phase_detector:
   background_sigma: 0.1
   peak_frac_gradual: 0.8
