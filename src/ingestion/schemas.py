@@ -12,6 +12,7 @@ SOLEXS_SCHEMA = DataFrameSchema(
             pa.Check.greater_than_or_equal_to(0),
             pa.Check.less_than(1e9)
         ], nullable=False),
+        "pradan_version": Column(str, nullable=False),
     },
     index=pa.Index(
         pa.DateTime,

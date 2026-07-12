@@ -48,19 +48,40 @@ def create_windows(df: pd.DataFrame,
                    window_size:  int = 60,
                    horizon:      int = 15,
                    step:         int = 1) -> tuple:
-    """Sliding window generator returning (X, y_now, y_fore)."""
+    """Sliding window generator returning (X, y_now, y_fore).
+
+    Downsamples N-class (label=0) windows by ``step`` while keeping
+    100 % of C / M / X windows (label >= 1).  This prevents the
+    uniform-step approach from discarding the vast majority of rare
+    flare events.
+    """
     X, y_now, y_fore = [], [], []
-    
+
     # Filter for columns that actually exist
     available_cols = [c for c in feature_cols if c in df.columns]
-    
+
     data   = df[available_cols].values
     labels = df["label"].values
 
-    for i in range(0, len(data) - window_size - horizon + 1, step):
-        X.append(data[i:i + window_size])
-        y_now.append(labels[i + window_size - 1])
-        y_fore.append(labels[i + window_size + horizon - 1])
+    n_total = len(data) - window_size - horizon + 1
+    if n_total <= 0:
+        return (
+            np.empty((0, window_size, len(available_cols)), dtype=np.float32),
+            np.empty((0,), dtype=np.int64),
+            np.empty((0,), dtype=np.int64),
+        )
+
+    for i in range(n_total):
+        lbl_now  = labels[i + window_size - 1]
+        lbl_fore = labels[i + window_size + horizon - 1]
+
+        is_flare_window = (lbl_now > 0) or (lbl_fore > 0)
+
+        # Keep ALL flare windows; downsample background by step
+        if is_flare_window or (i % step == 0):
+            X.append(data[i:i + window_size])
+            y_now.append(lbl_now)
+            y_fore.append(lbl_fore)
 
     return (
         np.array(X,      dtype=np.float32),

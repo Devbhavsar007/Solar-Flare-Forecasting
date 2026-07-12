@@ -21,28 +21,46 @@ def download_goes_xrs(start_date: str, end_date: str, output_dir: str = "data/ra
     
     print(f"Fetching GOES XRS data from {start_date} to {end_date}...")
     
-    # Determine primary satellite based on start year (GOES-15 pre-2017, GOES-16 2017+)
+    # Handle boundaries: GOES-15 pre-2017, GOES-16 2017 to 2025-04-06, GOES-19 from 2025-04-07
     start_dt = pd.Timestamp(start_date)
-    sat_number = 16 if start_dt.year >= 2017 else 15
+    end_dt = pd.Timestamp(end_date)
     
-    result = Fido.search(
-        a.Time(start_date, end_date),
-        a.Instrument.xrs,
-        a.Resolution("avg1m"),
-        a.goes.SatelliteNumber(sat_number),
-    )
-    
-    if len(result) == 0:
-        print("No GOES data found for the specified period.")
-        return
+    queries = []
+    if start_dt < pd.Timestamp('2017-01-01'):
+        sub_end = min(end_dt, pd.Timestamp('2016-12-31 23:59:59'))
+        queries.append((start_dt, sub_end, 15))
+    if end_dt >= pd.Timestamp('2017-01-01') and start_dt < pd.Timestamp('2025-04-07'):
+        sub_start = max(start_dt, pd.Timestamp('2017-01-01'))
+        sub_end = min(end_dt, pd.Timestamp('2025-04-06 23:59:59'))
+        queries.append((sub_start, sub_end, 16))
+    if end_dt >= pd.Timestamp('2025-04-07'):
+        sub_start = max(start_dt, pd.Timestamp('2025-04-07'))
+        queries.append((sub_start, end_dt, 19))
         
-    print(f"Found {len(result[0])} files. Downloading...")
-    # NOAA servers often timeout on concurrent downloads of large GOES-16+ NetCDF files.
-    # We restrict max_conn to 2 to prevent "Timeout on reading data from socket".
-    downloaded_files = Fido.fetch(result, path=output_dir, max_conn=2)
+    from sunpy.net.dataretriever.sources.goes import XRSClient
+    client = XRSClient()
+    
+    downloaded_files = []
+    
+    for sub_start, sub_end, sat_number in queries:
+        res = client.search(
+            a.Time(sub_start.strftime('%Y-%m-%d %H:%M:%S'), sub_end.strftime('%Y-%m-%d %H:%M:%S')),
+            a.Instrument.xrs,
+            a.Resolution("avg1m"),
+            a.goes.SatelliteNumber(sat_number),
+        )
+        if len(res) == 0:
+            print(f"No GOES data found for {sub_start} to {sub_end} (sat={sat_number}).")
+            continue
+            
+        print(f"Found {len(res)} files for sat {sat_number}. Downloading...")
+        files = Fido.fetch(res, path=output_dir, max_conn=2)
+        if files:
+            # Fido.fetch returns a parfive.Results object which is iterable
+            downloaded_files.extend(list(files))
     
     if not downloaded_files:
-        print("Failed to download files.")
+        print("Failed to download any files or no data available.")
         return
         
     print("Parsing FITS files...")

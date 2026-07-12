@@ -81,8 +81,8 @@ def main():
                 pass
             continue
 
-        # BUG 4 FIX (a): Assert schema — columns must be exactly ['counts']
-        expected_cols = ['counts']
+        # BUG 4 FIX (a): Assert schema — columns must be exactly ['counts', 'pradan_version']
+        expected_cols = ['counts', 'pradan_version']
         if list(df.columns) != expected_cols:
             schema_fail_files.append((zip_name, f"Got columns {list(df.columns)}, expected {expected_cols}"))
             continue

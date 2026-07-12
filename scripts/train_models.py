@@ -48,7 +48,7 @@ def get_real_data():
     noaa_path = "data/raw/noaa_catalog.parquet"
     if not os.path.exists(noaa_path):
         print("NOAA catalog not found. Downloading...")
-        master_catalogue = download_noaa_catalog(start_year=2010, end_year=2024, out_path=noaa_path)
+        master_catalogue = download_noaa_catalog(start_year=2010, end_year=2026, out_path=noaa_path)
     else:
         master_catalogue = pd.read_parquet(noaa_path)
         
@@ -84,18 +84,24 @@ def get_real_data():
 
     # Preprocessing: Calibration Fix
     print("Applying cross-calibration for GOES 13-15 science-quality data...")
-    solexs_files = glob.glob("data/raw/pradan_download/*solexs*.fits")
-    if not solexs_files:
-        print("WARNING: No SoLEXS FITS files found in data/raw/pradan_download/.")
+    solexs_parquet = "data/raw/solexs/solexs_all.parquet"
+    if not os.path.exists(solexs_parquet):
+        print("WARNING: SoLEXS parquet file not found at data/raw/solexs/solexs_all.parquet.")
         print("Skipping cross-calibration loudly. The model will train on raw GOES flux.")
         goes_df["xrs_b_calibrated"] = goes_df["xrs_b"]
         goes_df["xrs_a_calibrated"] = goes_df["xrs_a"]
         calib = {"slope": 1.0, "intercept": 0.0, "calibrated": False, "n_samples": 0}
     else:
-        from src.ingestion.fits_reader import read_solexs
-        solexs_df = pd.concat([read_solexs(f) for f in solexs_files]).sort_index()
+        print(f"Loading SoLEXS data from {solexs_parquet}...")
+        solexs_df = pd.read_parquet(solexs_parquet)
+        if solexs_df.index.tzinfo is None:
+            solexs_df.index = solexs_df.index.tz_localize("UTC")
         try:
-            calib = fit_goes_solexs_calibration(goes_df, solexs_df)
+            calib = fit_goes_solexs_calibration(
+                goes_df, solexs_df, 
+                noaa_catalog=master_catalogue,
+                overlap_start=None, overlap_end=None
+            )
             goes_df["xrs_b_calibrated"] = apply_goes_calibration(goes_df["xrs_b"].values, calib)
             goes_df["xrs_a_calibrated"] = goes_df["xrs_a"]
         except Exception as e:
@@ -137,9 +143,9 @@ def temporal_three_way_split(X, y, dates):
     Validate (for threshold tuning): 2022
     Test (for final reporting): >= 2023
     """
-    train_mask = dates.year <= 2010
-    val_mask = dates.year == 2011
-    test_mask = dates.year >= 2012
+    train_mask = dates.year <= 2021
+    val_mask = dates.year == 2022
+    test_mask = dates.year >= 2023
     
     X_tr, y_tr = X[train_mask], y[train_mask]
     X_val, y_val = X[val_mask], y[val_mask]
@@ -175,6 +181,14 @@ def main():
     tcn_val = np.empty((len(X_val), 0))
     tcn_test = np.empty((len(X_test), 0))
     
+    # Print class distribution before training
+    print("\nClass Distribution:")
+    classes_names = {0: "N", 1: "C", 2: "M", 3: "X"}
+    tr_dist = pd.Series(y_tr).map(classes_names).value_counts().sort_index()
+    val_dist = pd.Series(y_val).map(classes_names).value_counts().sort_index()
+    dist_df = pd.DataFrame({"Train": tr_dist, "Val": val_dist}).fillna(0).astype(int)
+    print(dist_df.to_string())
+
     # 4. Train Model (Handles class weighting internally; NO oversampling)
     print("\nTraining Multi-class Nowcaster...")
     model = train_multiclass_nowcast(
@@ -196,31 +210,15 @@ def main():
     combined_test = np.concatenate([tcn_test, flat_test], axis=1)
     
     proba_test = model.predict_proba(combined_test)
-    
-    # Safety: handle degenerate predict_proba output from single-class models
     n_test = len(y_test)
-    if proba_test.ndim == 1:
-        proba_test = proba_test.reshape(1, -1)
-    # If shape is (num_classes, N) instead of (N, num_classes), transpose
-    if proba_test.shape[0] != n_test and proba_test.shape[1] != 4:
-        # Completely degenerate — just predict all N-class
-        print(f"WARNING: predict_proba returned unexpected shape {proba_test.shape}. Defaulting all predictions to N-class.")
-        y_pred = np.zeros_like(y_test)
-    else:
-        if proba_test.shape[0] != n_test and proba_test.ndim == 2:
-            proba_test = proba_test.T
-        # Pad to 4 columns if model only learned a subset of classes
-        if proba_test.shape[1] < 4:
-            padded = np.zeros((proba_test.shape[0], 4))
-            for ci, cls in enumerate(model.classes_):
-                padded[:, int(cls)] = proba_test[:, ci]
-            proba_test = padded
-        
-        # Vectorized threshold application (X > M > C priority)
-        y_pred = np.zeros(n_test, dtype=int)
-        y_pred[proba_test[:, 1] >= thresholds.get("C", 0.5)] = 1
-        y_pred[proba_test[:, 2] >= thresholds.get("M", 0.5)] = 2
-        y_pred[proba_test[:, 3] >= thresholds.get("X", 0.5)] = 3
+    
+    assert proba_test.shape == (n_test, 4), f"got {proba_test.shape}"
+    
+    # Vectorized threshold application (X > M > C priority)
+    y_pred = np.zeros(n_test, dtype=int)
+    y_pred[proba_test[:, 1] >= thresholds.get("C", 0.5)] = 1
+    y_pred[proba_test[:, 2] >= thresholds.get("M", 0.5)] = 2
+    y_pred[proba_test[:, 3] >= thresholds.get("X", 0.5)] = 3
 
     class_names = ["N", "C", "M", "X"]
     recalls = recall_score(y_test, y_pred, average=None, zero_division=0)

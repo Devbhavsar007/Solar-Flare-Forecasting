@@ -191,6 +191,14 @@ def read_solexs(filepath: str) -> pd.DataFrame:
 
     df = pd.DataFrame({"counts": counts}, index=timestamps)
     df.index.name = "time"
+    
+    import re
+    basename = os.path.basename(filepath)
+    match = re.search(r'_v(\d+\.\d+)\.', basename)
+    if match:
+        df["pradan_version"] = "v" + match.group(1)
+    else:
+        df["pradan_version"] = "v1.0" # fallback
 
     # Sanity check: Aditya-L1 reached L1 / SoLEXS commissioning ~Sep 2023.
     # Anything before that date is a timestamp-parsing bug, not real data.

@@ -164,42 +164,19 @@ def optimize_per_class_thresholds(
         dict mapping class name → optimal threshold.
     """
     proba = model.predict_proba(combined_val)
-    
-    # Safety: if the model only learned a subset of classes, proba may have fewer
-    # columns than 4, or be completely degenerate. Pad to (N, 4).
     n_samples = combined_val.shape[0]
     
-    if proba.ndim == 1:
-        # Model returned a single row or flat array
-        if proba.shape[0] == 4:
-            # Single sample case: (4,) -> (1, 4)
-            proba = proba.reshape(1, -1)
-        else:
-            # Completely degenerate — fall back to defaults
-            print("WARNING: predict_proba returned degenerate output. Using default thresholds.")
-            defaults = {"N": 0.50, "C": 0.38, "M": 0.45, "X": 0.28}
-            try:
-                with open("configs/nowcasting.yaml") as f:
-                    cfg = yaml.safe_load(f) or {}
-            except FileNotFoundError:
-                cfg = {}
-            cfg["class_thresholds"] = defaults
-            with open("configs/nowcasting.yaml", "w") as f:
-                yaml.dump(cfg, f, default_flow_style=False)
-            print(f"Per-class thresholds (defaults): {defaults}")
-            return defaults
-    
+    # If the training set was missing a class, XGBoost might return fewer columns
     if proba.shape[1] < 4:
-        padded = np.zeros((proba.shape[0], 4))
-        for i, cls in enumerate(model.classes_):
-            padded[:, int(cls)] = proba[:, i]
-        proba = padded
-    
-    # Verify proba and y_val have compatible lengths
-    if proba.shape[0] != n_samples:
-        print(f"WARNING: proba shape {proba.shape} doesn't match input size {n_samples}. Using default thresholds.")
-        defaults = {"N": 0.50, "C": 0.38, "M": 0.45, "X": 0.28}
-        return defaults
+        print(f"Warning: XGBoost returned {proba.shape[1]} classes instead of 4. Padding missing classes with 0.")
+        padded_proba = np.zeros((n_samples, 4))
+        # model.classes_ tells us which classes are present
+        for i, cls_label in enumerate(model.classes_):
+            if int(cls_label) < 4:
+                padded_proba[:, int(cls_label)] = proba[:, i]
+        proba = padded_proba
+        
+    assert proba.shape == (n_samples, 4), f"got {proba.shape}"
     
     class_names = ["N", "C", "M", "X"]
     thresholds: dict[str, float] = {}
