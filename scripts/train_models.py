@@ -158,7 +158,8 @@ def get_real_data():
     goes_df['xrs_b_roll_var_15m'] = goes_df['xrs_b_calibrated'].rolling(15, min_periods=1).var()
     goes_df['xrs_b_roll_max_15m'] = goes_df['xrs_b_calibrated'].rolling(15, min_periods=1).max()
     goes_df['xrs_b_roll_max_60m'] = goes_df['xrs_b_calibrated'].rolling(60, min_periods=1).max()
-    goes_df = goes_df.bfill().fillna(0)
+    new_cols = ['xrs_b_diff', 'xrs_a_diff', 'xrs_b_roll_var_15m', 'xrs_b_roll_max_15m', 'xrs_b_roll_max_60m']
+    goes_df[new_cols] = goes_df[new_cols].bfill().fillna(0)
 
     feature_cols = [
         "xrs_a_calibrated", "xrs_b_calibrated", "xrs_a", "xrs_b",
@@ -214,6 +215,10 @@ def main():
      X_val, y_fore_val, y_now_val, 
      X_test, y_fore_test, y_now_test) = temporal_three_way_split(X, y_fore, y_now, dates)
     
+    del X
+    import gc
+    gc.collect()
+    
     if len(X_tr) == 0 or len(X_val) == 0 or len(X_test) == 0:
         print("Not enough data to train. Exiting.")
         return
@@ -248,6 +253,10 @@ def main():
     tcn_tr = extract_tcn_features(encoder, X_tr_norm, device=device)
     tcn_val = extract_tcn_features(encoder, X_val_norm, device=device)
     tcn_test = extract_tcn_features(encoder, X_test_norm, device=device)
+    
+    del X_tr_clean, X_val_clean, X_test_clean, X_tr_log, X_val_log, X_test_log
+    del X_tr_norm, X_val_norm, X_test_norm
+    gc.collect()
     
     # Print class distribution before training
     print("\nClass Distribution (y_fore, per-split window counts):")

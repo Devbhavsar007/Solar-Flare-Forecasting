@@ -156,7 +156,7 @@ def optimize_per_class_thresholds(
     y_val: np.ndarray,
 ) -> dict[str, float]:
     """
-    Sweep per-class thresholds to maximize TSS [RULE-3].
+    Sweep per-class thresholds to maximize F1 [RULE-3].
 
     X-class threshold is forced ≤ M-class threshold because missing
     X-class flares is catastrophically costly [Decision D8].
@@ -185,11 +185,11 @@ def optimize_per_class_thresholds(
     y_val_arr = np.asarray(y_val).ravel()
     
     for cls_idx, cls_name in enumerate(class_names):
-        best_tss = -1.0
+        best_f1 = -1.0
         best_t = 0.50
 
         binary_true = (y_val_arr == cls_idx).astype(int)
-        for t in np.linspace(0.001, 0.99, 100):
+        for t in np.linspace(0.99, 0.001, 100):
             binary_pred = (proba[:, cls_idx] >= t).astype(int)
             tp = ((binary_pred == 1) & (binary_true == 1)).sum()
             fp = ((binary_pred == 1) & (binary_true == 0)).sum()
@@ -200,8 +200,8 @@ def optimize_per_class_thresholds(
             recall = tp / max(tp + fn, 1)
             f1 = 2 * (precision * recall) / max(precision + recall, 1e-8)
             
-            if f1 > best_tss:
-                best_tss = f1  # Reusing variable name best_tss to mean best_metric
+            if f1 > best_f1:
+                best_f1 = f1
                 best_t = float(t)
 
         thresholds[cls_name] = best_t
