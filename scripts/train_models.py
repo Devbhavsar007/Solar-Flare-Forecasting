@@ -160,9 +160,9 @@ def get_real_data():
         f"MISALIGNED: X={len(X)} y_now={len(y_now)} y_fore={len(y_fore)} dates={len(dates)}"
     print(f"Task 1 verified: {len(X)} windows, all arrays aligned")
 
-    return X, y_now, dates
+    return X, y_fore, y_now, dates
 
-def temporal_three_way_split(X, y, dates):
+def temporal_three_way_split(X, y_fore, y_now, dates):
     """
     Strict contiguous time block splitting.
     Train: <= 2021
@@ -173,54 +173,66 @@ def temporal_three_way_split(X, y, dates):
     val_mask = dates.year == 2022
     test_mask = dates.year >= 2023
     
-    X_tr, y_tr = X[train_mask], y[train_mask]
-    X_val, y_val = X[val_mask], y[val_mask]
-    X_test, y_test = X[test_mask], y[test_mask]
+    X_tr, y_fore_tr, y_now_tr = X[train_mask], y_fore[train_mask], y_now[train_mask]
+    X_val, y_fore_val, y_now_val = X[val_mask], y_fore[val_mask], y_now[val_mask]
+    X_test, y_fore_test, y_now_test = X[test_mask], y_fore[test_mask], y_now[test_mask]
     
-    print(f"Split sizes -> Train: {len(y_tr)} | Val: {len(y_val)} | Test: {len(y_test)}")
+    print(f"Split sizes -> Train: {len(y_fore_tr)} | Val: {len(y_fore_val)} | Test: {len(y_fore_test)}")
     
-    if len(y_val) > 0:
-        val_counts = pd.Series(y_val).value_counts()
+    if len(y_fore_val) > 0:
+        val_counts = pd.Series(y_fore_val).value_counts()
         x_class_count = val_counts.get(3, 0)
-        print(f"2022 Validation Slice X-class event count: {x_class_count}")
+        print(f"2022 Validation Slice (y_fore) X-class event count: {x_class_count}")
         if x_class_count < 5:
             print("WARNING: X-class events are sparse in 2022 validation slice. The X threshold will default to crude overrides.")
         
-    return X_tr, y_tr, X_val, y_val, X_test, y_test
+    return (X_tr, y_fore_tr, y_now_tr, 
+            X_val, y_fore_val, y_now_val, 
+            X_test, y_fore_test, y_now_test)
 
 def main():
     os.makedirs("models", exist_ok=True)
     os.makedirs("configs", exist_ok=True)
     
     # 1. Load Data
-    X, y, dates = get_real_data()
+    X, y_fore, y_now, dates = get_real_data()
     
     # 2. Strict 3-Way Temporal Split
-    X_tr, y_tr, X_val, y_val, X_test, y_test = temporal_three_way_split(X, y, dates)
+    (X_tr, y_fore_tr, y_now_tr, 
+     X_val, y_fore_val, y_now_val, 
+     X_test, y_fore_test, y_now_test) = temporal_three_way_split(X, y_fore, y_now, dates)
     
     if len(X_tr) == 0 or len(X_val) == 0 or len(X_test) == 0:
         print("Not enough data to train. Exiting.")
         return
 
-    # 3. Features (TCN is untrained and thus dropped to prevent feeding noise)
-    tcn_tr = np.empty((len(X_tr), 0))
-    tcn_val = np.empty((len(X_val), 0))
-    tcn_test = np.empty((len(X_test), 0))
+    # 3. Features (Extracting embeddings using the untrained TCN)
+    from src.nowcasting.tcn_encoder import TCNEncoder
+    from src.nowcasting.train import extract_tcn_features
+    import torch
+    
+    print("\nExtracting features using randomly initialized TCNEncoder...")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    encoder = TCNEncoder(n_features=4, embed_dim=64, n_layers=4)
+    
+    tcn_tr = extract_tcn_features(encoder, X_tr, device=device)
+    tcn_val = extract_tcn_features(encoder, X_val, device=device)
+    tcn_test = extract_tcn_features(encoder, X_test, device=device)
     
     # Print class distribution before training
-    print("\nClass Distribution (per-split window counts):")
+    print("\nClass Distribution (y_fore, per-split window counts):")
     counts = pd.DataFrame({
-        "Train": pd.Series(y_tr).value_counts(),
-        "Val": pd.Series(y_val).value_counts(),
-        "Test": pd.Series(y_test).value_counts()
+        "Train": pd.Series(y_fore_tr).value_counts(),
+        "Val": pd.Series(y_fore_val).value_counts(),
+        "Test": pd.Series(y_fore_test).value_counts()
     }).fillna(0).astype(int)
     print(counts)
     
     # 4. Train Model (Handles class weighting internally; NO oversampling)
-    print("\nTraining Multi-class Nowcaster...")
+    print("\nTraining Multi-class Forecaster (15-min horizon)...")
     model = train_multiclass_nowcast(
-        X_tr, y_tr, 
-        X_val, y_val, 
+        X_tr, y_fore_tr, 
+        X_val, y_fore_val, 
         tcn_tr, tcn_val, 
         models_dir="models"
     )
@@ -229,7 +241,7 @@ def main():
     print("\nTuning thresholds against 2022 Validation slice...")
     flat_val = X_val.reshape(len(X_val), -1)
     combined_val = np.concatenate([tcn_val, flat_val], axis=1)
-    thresholds = optimize_per_class_thresholds(model, combined_val, y_val)
+    thresholds = optimize_per_class_thresholds(model, combined_val, y_fore_val)
     
     # 6. Evaluate on Untouched Test Slice (2023-2024)
     print("\nEvaluating on untouched 2023-2024 Test slice (Solar Maximum ramp-up)...")
@@ -237,7 +249,7 @@ def main():
     combined_test = np.concatenate([tcn_test, flat_test], axis=1)
     
     proba_test = model.predict_proba(combined_test)
-    n_test = len(y_test)
+    n_test = len(y_fore_test)
     
     # Pad if XGBoost returned fewer than 4 classes (same fix as validation path)
     if proba_test.shape[1] < 4:
@@ -258,10 +270,10 @@ def main():
 
     class_names = ["N", "C", "M", "X"]
     from sklearn.metrics import precision_score, confusion_matrix
-    precisions = precision_score(y_test, y_pred, average=None, zero_division=0)
-    recalls = recall_score(y_test, y_pred, average=None, zero_division=0)
-    f1s = f1_score(y_test, y_pred, average=None, zero_division=0)
-    cm = confusion_matrix(y_test, y_pred)
+    precisions = precision_score(y_fore_test, y_pred, average=None, zero_division=0)
+    recalls = recall_score(y_fore_test, y_pred, average=None, zero_division=0)
+    f1s = f1_score(y_fore_test, y_pred, average=None, zero_division=0)
+    cm = confusion_matrix(y_fore_test, y_pred)
     
     print("\nTest Set Metrics (Per-Class):")
     for idx, cls_name in enumerate(class_names):
@@ -271,12 +283,12 @@ def main():
     print("\nConfusion Matrix (Rows: True, Cols: Pred):")
     print(cm)
     
-    # Persistence baseline
-    y_pers = np.concatenate(([y_test[0]], y_test[:-1]))
-    pers_prec = precision_score(y_test, y_pers, average=None, zero_division=0)
-    pers_rec = recall_score(y_test, y_pers, average=None, zero_division=0)
-    pers_f1 = f1_score(y_test, y_pers, average=None, zero_division=0)
-    print("\nPersistence Baseline Test Set Metrics (Per-Class):")
+    # Persistence baseline (15-min horizon means y_pred = y_now)
+    y_pers = y_now_test
+    pers_prec = precision_score(y_fore_test, y_pers, average=None, zero_division=0)
+    pers_rec = recall_score(y_fore_test, y_pers, average=None, zero_division=0)
+    pers_f1 = f1_score(y_fore_test, y_pers, average=None, zero_division=0)
+    print("\n15-min Persistence Baseline Test Set Metrics (y_pred = y_now):")
     for idx, cls_name in enumerate(class_names):
         if idx < len(pers_rec):
             print(f"  {cls_name}-class | Precision: {pers_prec[idx]:.4f} | Recall: {pers_rec[idx]:.4f} | F1: {pers_f1[idx]:.4f}")

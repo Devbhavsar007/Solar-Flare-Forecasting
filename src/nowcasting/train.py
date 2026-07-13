@@ -103,8 +103,8 @@ def train_multiclass_nowcast(
     # Inverse class frequency for sample weights — capped to prevent instability
     classes, counts = np.unique(y_tr, return_counts=True)
     freq = counts / counts.sum()
-    class_weights = {c: min((1.0 / max(f, 1e-8)) ** 0.5, 50.0) for c, f in zip(classes, freq)}
-    print(f"  Class weights (sqrt-dampened, capped at 50): {class_weights}")
+    class_weights = {c: min(1.0 / max(f, 1e-8), 5000.0) for c, f in zip(classes, freq)}
+    print(f"  Class weights (inverse-frequency, capped at 5000): {class_weights}")
     sample_weights = np.array([class_weights[y] for y in y_tr])
 
     # [RULE-5] multi:softprob, 4 classes
@@ -189,26 +189,24 @@ def optimize_per_class_thresholds(
         best_t = 0.50
 
         binary_true = (y_val_arr == cls_idx).astype(int)
-        for t in np.arange(0.10, 0.91, 0.05):
+        for t in np.linspace(0.001, 0.99, 100):
             binary_pred = (proba[:, cls_idx] >= t).astype(int)
             tp = ((binary_pred == 1) & (binary_true == 1)).sum()
             fp = ((binary_pred == 1) & (binary_true == 0)).sum()
             fn = ((binary_pred == 0) & (binary_true == 1)).sum()
-            tn = ((binary_pred == 0) & (binary_true == 0)).sum()
-            tpr = tp / max(tp + fn, 1)
-            fpr = fp / max(fp + tn, 1)
-            tss = tpr - fpr
-            if tss > best_tss:
-                best_tss = tss
-                best_t = float(round(t, 2))
+            
+            # F1 score maximization instead of TSS
+            precision = tp / max(tp + fp, 1)
+            recall = tp / max(tp + fn, 1)
+            f1 = 2 * (precision * recall) / max(precision + recall, 1e-8)
+            
+            if f1 > best_tss:
+                best_tss = f1  # Reusing variable name best_tss to mean best_metric
+                best_t = float(t)
 
         thresholds[cls_name] = best_t
 
-    # [Decision D8] X-class override: threshold must be less than or equal to M-class
-    if thresholds["X"] > thresholds["M"]:
-        thresholds["X"] = min(thresholds["M"] - 0.05, thresholds["X"])
-        print(f"X-class threshold overridden to {thresholds['X']:.2f} "
-              f"(forced less than or equal to M={thresholds['M']:.2f})")
+
 
     # Save to configs/nowcasting.yaml
     try:
