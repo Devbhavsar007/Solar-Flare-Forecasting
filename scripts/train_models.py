@@ -152,7 +152,19 @@ def get_real_data():
     print("Building multi-class labels...")
     goes_df = build_multiclass_labels(goes_df, master_catalogue)
     
-    feature_cols = ["xrs_a_calibrated", "xrs_b_calibrated", "xrs_a", "xrs_b"]
+    print("Computing explicit temporal features (derivatives and rolling stats)...")
+    goes_df['xrs_b_diff'] = goes_df['xrs_b_calibrated'].diff()
+    goes_df['xrs_a_diff'] = goes_df['xrs_a_calibrated'].diff()
+    goes_df['xrs_b_roll_var_15m'] = goes_df['xrs_b_calibrated'].rolling(15, min_periods=1).var()
+    goes_df['xrs_b_roll_max_15m'] = goes_df['xrs_b_calibrated'].rolling(15, min_periods=1).max()
+    goes_df['xrs_b_roll_max_60m'] = goes_df['xrs_b_calibrated'].rolling(60, min_periods=1).max()
+    goes_df = goes_df.bfill().fillna(0)
+
+    feature_cols = [
+        "xrs_a_calibrated", "xrs_b_calibrated", "xrs_a", "xrs_b",
+        "xrs_b_diff", "xrs_a_diff",
+        "xrs_b_roll_var_15m", "xrs_b_roll_max_15m", "xrs_b_roll_max_60m"
+    ]
     STEP = 15  # One window every 15 minutes to keep memory manageable on laptops
     X, y_now, y_fore, dates = create_windows(goes_df, feature_cols=feature_cols, window_size=60, horizon=15, step=STEP)
 
@@ -230,7 +242,8 @@ def main():
 
     print("Extracting features using randomly initialized TCNEncoder...")
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    encoder = TCNEncoder(n_features=4, embed_dim=64, n_layers=4)
+    encoder = TCNEncoder(n_features=9, embed_dim=64, n_layers=4)
+
     
     tcn_tr = extract_tcn_features(encoder, X_tr_norm, device=device)
     tcn_val = extract_tcn_features(encoder, X_val_norm, device=device)
