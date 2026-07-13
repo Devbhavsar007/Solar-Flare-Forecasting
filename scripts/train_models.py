@@ -211,13 +211,30 @@ def main():
     from src.nowcasting.train import extract_tcn_features
     import torch
     
-    print("\nExtracting features using randomly initialized TCNEncoder...")
+    print("\nApplying NaN-safe log10 + z-score normalization to TCN inputs...")
+    EPS = 1e-12
+    X_tr_clean = np.nan_to_num(X_tr, nan=0.0)
+    X_val_clean = np.nan_to_num(X_val, nan=0.0)
+    X_test_clean = np.nan_to_num(X_test, nan=0.0)
+
+    X_tr_log = np.log10(np.abs(X_tr_clean) + EPS)
+    X_val_log = np.log10(np.abs(X_val_clean) + EPS)
+    X_test_log = np.log10(np.abs(X_test_clean) + EPS)
+
+    mu = X_tr_log.reshape(-1, X_tr_log.shape[-1]).mean(axis=0)
+    sigma = X_tr_log.reshape(-1, X_tr_log.shape[-1]).std(axis=0) + 1e-8
+
+    X_tr_norm = (X_tr_log - mu) / sigma
+    X_val_norm = (X_val_log - mu) / sigma
+    X_test_norm = (X_test_log - mu) / sigma
+
+    print("Extracting features using randomly initialized TCNEncoder...")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     encoder = TCNEncoder(n_features=4, embed_dim=64, n_layers=4)
     
-    tcn_tr = extract_tcn_features(encoder, X_tr, device=device)
-    tcn_val = extract_tcn_features(encoder, X_val, device=device)
-    tcn_test = extract_tcn_features(encoder, X_test, device=device)
+    tcn_tr = extract_tcn_features(encoder, X_tr_norm, device=device)
+    tcn_val = extract_tcn_features(encoder, X_val_norm, device=device)
+    tcn_test = extract_tcn_features(encoder, X_test_norm, device=device)
     
     # Print class distribution before training
     print("\nClass Distribution (y_fore, per-split window counts):")
