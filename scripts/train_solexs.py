@@ -25,8 +25,8 @@ def load_and_preprocess_solexs():
     
     # Resample 1s cadence to 1min cadence
     print("Resampling SoLEXS data to 1-minute cadence...")
-    # Assuming 'COUNTS' is the main feature
-    solexs_df = solexs_df.resample('1min').mean().fillna(0)
+    # Assuming 'COUNTS' is the main feature. Do not fillna(0) to avoid masking gaps.
+    solexs_df = solexs_df.resample('1min').mean()
     
     print("Loading NOAA master catalog...")
     noaa_path = "data/raw/noaa_catalog.parquet"
@@ -43,7 +43,9 @@ def load_and_preprocess_solexs():
     solexs_df['COUNTS_roll_var_15m'] = solexs_df['COUNTS'].rolling(15, min_periods=1).var()
     solexs_df['COUNTS_roll_max_15m'] = solexs_df['COUNTS'].rolling(15, min_periods=1).max()
     solexs_df['COUNTS_roll_max_60m'] = solexs_df['COUNTS'].rolling(60, min_periods=1).max()
-    solexs_df.fillna(0, inplace=True)
+    
+    # Drop rows where COUNTS is NaN to mask out data gaps (same approach as GOES)
+    solexs_df.dropna(subset=['COUNTS'], inplace=True)
     
     return solexs_df
 

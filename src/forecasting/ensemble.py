@@ -19,28 +19,27 @@ def _flux_to_probs(peak_flux: float) -> np.ndarray:
 
 class ThreeModelEnsemble:
     """
-    Ensemble of CausalLSTM, MultiHorizon TCN, and optionally TimesFM.
+    Ensemble of CausalLSTM and MultiHorizon TCN (TimesFM dropped per D11).
+    Kept the class name 'ThreeModelEnsemble' for backwards compatibility,
+    but it now strictly operates as a Two-Model ensemble.
     """
     def __init__(self, lstm_model, tcn_model, timesfm_model=None, weights=None):
         self.lstm_model = lstm_model
         self.tcn_model = tcn_model
-        self.timesfm_model = timesfm_model
         
-        if weights is None:
-            if timesfm_model is None:
-                self.weights = (0.50, 0.50)
-            else:
-                self.weights = (0.35, 0.35, 0.30)
+        # We completely ignore timesfm_model if passed
+        if weights is None or len(weights) != 2:
+            self.weights = (0.50, 0.50)
         else:
             self.weights = weights
 
-    def predict_single(self, X_tensor: torch.Tensor, flux_np: np.ndarray, horizon: int = 15) -> np.ndarray:
+    def predict_single(self, X_tensor: torch.Tensor, flux_np: np.ndarray = None, horizon: int = 15) -> np.ndarray:
         """
         Weighted average of model probabilities.
         
         Args:
             X_tensor: (1, T, F) tensor for LSTM and TCN.
-            flux_np: (T,) array of flux values for TimesFM.
+            flux_np: (T,) array of flux values (ignored, kept for signature compatibility).
             horizon: Target horizon in minutes.
             
         Returns:
@@ -55,26 +54,7 @@ class ThreeModelEnsemble:
             tcn_out = self.tcn_model(X_tensor)
             tcn_prob = tcn_out[f"h{horizon}"].cpu().numpy()[0]
             
-        if self.timesfm_model is not None:
-            # We assume predict_timesfm is imported or passed somehow
-            if hasattr(self.timesfm_model, "forecast"):
-                # Real TimesFM
-                from src.forecasting.timesfm_model import predict_timesfm
-                try:
-                    forecast_df = predict_timesfm(self.timesfm_model, flux_np, horizon)
-                    peak_flux = forecast_df["timesfm"].max()
-                    tfm_prob = _flux_to_probs(peak_flux)
-                except Exception:
-                    tfm_prob = np.array([0.25, 0.25, 0.25, 0.25])
-            elif hasattr(self.timesfm_model, "predict_proba"):
-                tfm_prob = self.timesfm_model.predict_proba(flux_np)
-            else:
-                tfm_prob = np.array([0.25, 0.25, 0.25, 0.25])
-                
-            w1, w2, w3 = self.weights
-            ensemble_prob = w1 * lstm_prob + w2 * tcn_prob + w3 * tfm_prob
-        else:
-            w1, w2 = self.weights
-            ensemble_prob = w1 * lstm_prob + w2 * tcn_prob
+        w1, w2 = self.weights
+        ensemble_prob = w1 * lstm_prob + w2 * tcn_prob
             
         return ensemble_prob / np.sum(ensemble_prob)

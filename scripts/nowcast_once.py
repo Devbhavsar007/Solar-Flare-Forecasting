@@ -69,7 +69,9 @@ def fetch_telemetry():
                     from src.preprocessing.cross_calibration import apply_goes_calibration
                     arr = np.zeros((1, 60, 4))
                     arr[0, :, 0] = df['xrsa'].values # A uses raw as calibrated
-                    arr[0, :, 1] = apply_goes_calibration(df['xrsb'].values, calib)
+                    # Determine version from timestamp — current data is always v1.0
+                    infer_version = "v1.0"
+                    arr[0, :, 1] = apply_goes_calibration(df['xrsb'].values, calib, version=infer_version)
                     arr[0, :, 2] = df['xrsa'].values
                     arr[0, :, 3] = df['xrsb'].values
                     return arr
@@ -115,7 +117,9 @@ def run_inference(model, X_window):
     # Real SHAP
     try:
         import shap
-        explainer = shap.TreeExplainer(model)
+        # If it's a CalibratedClassifierCV, get the base estimator for SHAP
+        base_model = getattr(model, 'estimator', model)
+        explainer = shap.TreeExplainer(base_model)
         shap_vals = explainer.shap_values(combined)
         # Simplify SHAP for payload
         shap_payload = {

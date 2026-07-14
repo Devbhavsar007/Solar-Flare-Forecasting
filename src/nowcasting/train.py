@@ -228,8 +228,8 @@ def train_multiclass_nowcast(
     print(f"  Class weights (inverse-frequency, capped at 5000): {class_weights}")
     sample_weights = np.array([class_weights[y] for y in y_tr])
 
-    # [RULE-5] multi:softprob, 4 classes
-    model = xgb.XGBClassifier(
+    # Class-weighted XGBoost Model
+    base_model = xgb.XGBClassifier(
         objective="multi:softprob",
         num_class=4,
         tree_method="hist",
@@ -242,33 +242,37 @@ def train_multiclass_nowcast(
         seed=SEED,
     )
 
-    model.fit(
+    base_model.fit(
         combined_tr, y_tr,
         sample_weight=sample_weights,
         eval_set=[(combined_val, y_val)],
         verbose=False,
     )
-
-    # Per-class F1
-    y_pred = model.predict(combined_val)
-    if y_pred.ndim > 1:
-        y_pred = y_pred.argmax(axis=1)
+    
+    # Apply Platt Scaling (sigmoid calibration) on the validation set
+    from sklearn.calibration import CalibratedClassifierCV
+    calibrated_model = CalibratedClassifierCV(estimator=base_model, method='sigmoid', cv='prefit')
+    calibrated_model.fit(combined_val, y_val)
+    
+    # Per-class F1 using calibrated model
+    y_pred = calibrated_model.predict(combined_val)
     for cls_idx, cls_name in enumerate(["N", "C", "M", "X"]):
         y_val_bin = (np.array(y_val) == cls_idx).astype(int).ravel()
         y_pred_bin = (np.array(y_pred) == cls_idx).astype(int).ravel()
         f1 = f1_score(y_val_bin, y_pred_bin, zero_division=0.0)
-        print(f"  F1({cls_name}): {f1:.4f}")
+        print(f"  Calibrated F1({cls_name}): {f1:.4f}")
 
     # [RULE-13] Save in BOTH formats
     os.makedirs(models_dir, exist_ok=True)
     json_path = os.path.join(models_dir, "xgb_multiclass.json")
     pkl_path = os.path.join(models_dir, "xgb_multiclass.pkl")
 
-    model.save_model(json_path)
-    joblib.dump(model, pkl_path)
-    print(f"XGBoost saved: {json_path} + {pkl_path}")
+    base_model.save_model(json_path) # Base model goes to JSON
+    joblib.dump(calibrated_model, pkl_path) # Calibrated model goes to PKL
+    print(f"XGBoost (base) saved: {json_path}")
+    print(f"Calibrated model saved: {pkl_path}")
 
-    return model
+    return calibrated_model
 
 
 def optimize_per_class_thresholds(

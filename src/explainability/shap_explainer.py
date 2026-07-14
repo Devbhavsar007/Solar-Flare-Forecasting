@@ -21,7 +21,9 @@ class SHAPExplainer:
             raise ImportError("shap is not installed. Run: pip install shap")
             
         self.feature_names = feature_names
-        self.explainer = shap.TreeExplainer(xgb_model)
+        # Extract base estimator if model is a CalibratedClassifierCV
+        base_model = getattr(xgb_model, 'estimator', xgb_model)
+        self.explainer = shap.TreeExplainer(base_model)
 
     def explain(self, combined_features: np.ndarray) -> dict:
         """
