@@ -95,7 +95,7 @@ def get_hel1os_windows(base_dir: str) -> pd.DataFrame:
         
     return pd.DataFrame(records)
 
-def build_subset(hel1os_dir: str, catalog_path: str, out_dir: str, target_classes: list, quiet_sun_ratio: float = 1.0, dry_run: bool = False):
+def build_subset(hel1os_dir: str, catalog_path: str, out_dir: str, target_classes: list, quiet_sun_ratio: float = 1.0, dry_run: bool = False, verify_expansion: bool = False):
     """
     Cross-references HEL1OS windows against GOES flare windows and copies the matched files.
     """
@@ -167,13 +167,32 @@ def build_subset(hel1os_dir: str, catalog_path: str, out_dir: str, target_classe
     total_size_mb = sum([os.path.getsize(f) for f in final_subset['filepath']]) / (1024*1024)
     
     print(f"\n--- 5. Subset Summary ---")
-    print(f"Total files: {len(final_subset)}")
-    print(f"Total size:  {total_size_mb/1024:.2f} GB")
+    print(f"Final curated subset: {len(final_subset)} files")
+    print(f"Estimated zipped size: {total_size_mb / 1024:.2f} GB")
     
-    print(f"\n--- 6. Copying Files ---")
-    
+    if verify_expansion:
+        import zipfile
+        print("\n[INFO] Verifying true uncompressed size from zip headers...")
+        total_compressed = 0
+        total_uncompressed = 0
+        for f in final_subset['filepath']:
+            if os.path.exists(f):
+                total_compressed += os.path.getsize(f)
+                try:
+                    with zipfile.ZipFile(f, 'r') as zf:
+                        total_uncompressed += sum(i.file_size for i in zf.infolist())
+                except Exception as e:
+                    print(f"[ERROR] Could not read {f}: {e}")
+            else:
+                print(f"[WARNING] File not found for size verification: {f}")
+
+        if total_compressed > 0:
+            print(f"Compressed:   {total_compressed/1024**3:.2f} GB")
+            print(f"Uncompressed: {total_uncompressed/1024**3:.2f} GB")
+            print(f"Ratio:        {total_uncompressed/total_compressed:.3f}x")
+            
     if dry_run:
-        print("DRY RUN ONLY. No files were copied.")
+        print("\n[INFO] Dry run complete. Exiting without copying.")
         return
         
     os.makedirs(out_dir, exist_ok=True)
@@ -193,7 +212,8 @@ if __name__ == "__main__":
     parser.add_argument("--out-dir", default=r"d:\solar_flare_subset\hel1os")
     parser.add_argument("--classes", nargs="+", default=["M", "X"], help="Flare classes to include (e.g. M X)")
     parser.add_argument("--quiet-ratio", type=float, default=1.0, help="Ratio of quiet-sun files to flare files")
-    parser.add_argument("--dry-run", action="store_true", help="Print stats but do not copy files")
+    parser.add_argument('--dry-run', action='store_true', help="Do not copy files, just print stats")
+    parser.add_argument('--verify-expansion', action='store_true', help="Calculate exact uncompressed size by reading zip headers (takes a minute)")
     
     args = parser.parse_args()
-    build_subset(args.hel1os_dir, args.catalog, args.out_dir, args.classes, args.quiet_ratio, args.dry_run)
+    build_subset(args.hel1os_dir, args.catalog, args.out_dir, args.classes, args.quiet_ratio, args.dry_run, args.verify_expansion)
