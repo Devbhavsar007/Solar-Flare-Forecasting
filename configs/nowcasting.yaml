@@ -1,8 +1,8 @@
 class_thresholds:
-  C: 0.4
-  M: 0.1
-  N: 0.6
-  X: 0.05
+  C: 0.001
+  M: 0.4005959595959596
+  N: 0.001
+  X: 0.001
 dead_time_us: 2.5
 goes_calibration:
   v1.0:

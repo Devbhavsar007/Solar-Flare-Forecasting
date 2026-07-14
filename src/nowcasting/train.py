@@ -73,6 +73,127 @@ def extract_tcn_features(
     return np.concatenate(embeddings, axis=0)
 
 
+def train_tcn_encoder(
+    X_tr: np.ndarray,
+    y_tr: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    n_features: int = 9,
+    embed_dim: int = 64,
+    n_layers: int = 4,
+    n_classes: int = 4,
+    lr: float = 1e-3,
+    epochs: int = 80,
+    batch_size: int = 256,
+    patience: int = 10,
+    device: str = "cpu",
+    save_path: str = "models/tcn_encoder.pt",
+) -> TCNEncoder:
+    """
+    Pre-train TCNEncoder with a temporary classification head.
+
+    Attaches nn.Linear(embed_dim, n_classes) head, trains with class-weighted
+    CrossEntropyLoss (same inverse-frequency scheme as train_multiclass_nowcast),
+    early-stops on validation macro-F1, then discards the head and returns
+    the trained encoder only.
+
+    Returns:
+        Trained TCNEncoder (head discarded).
+    """
+    import os
+
+    encoder = TCNEncoder(n_features=n_features, embed_dim=embed_dim, n_layers=n_layers)
+    head = torch.nn.Linear(embed_dim, n_classes)
+    encoder.to(device)
+    head.to(device)
+
+    # Class-weighted CrossEntropyLoss — same formula as line 106
+    classes, counts = np.unique(y_tr, return_counts=True)
+    freq = counts / counts.sum()
+    weight_map = {int(c): min(1.0 / max(f, 1e-8), 5000.0) for c, f in zip(classes, freq)}
+    class_weights = torch.zeros(n_classes, device=device)
+    for c, w in weight_map.items():
+        if c < n_classes:
+            class_weights[c] = w
+    # Fill any missing classes with 1.0
+    class_weights[class_weights == 0] = 1.0
+    print(f"  TCN encoder class weights: {class_weights.cpu().tolist()}")
+
+    criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
+    optimizer = torch.optim.Adam(list(encoder.parameters()) + list(head.parameters()), lr=lr)
+
+    y_tr_t = torch.tensor(y_tr, dtype=torch.long)
+    y_val_t = torch.tensor(y_val, dtype=torch.long)
+
+    best_f1 = -1.0
+    best_state = None
+    epochs_no_improve = 0
+
+    print(f"\n--- TCN Encoder Pre-training ({epochs} max epochs, patience={patience}) ---")
+    for epoch in range(epochs):
+        encoder.train()
+        head.train()
+        epoch_loss = 0.0
+        n_batches = 0
+
+        perm = torch.randperm(len(X_tr))
+        for start in range(0, len(X_tr), batch_size):
+            idx = perm[start:start + batch_size]
+            xb = torch.tensor(X_tr[idx.numpy()], dtype=torch.float32, device=device)
+            yb = y_tr_t[idx].to(device)
+
+            emb = encoder(xb)
+            logits = head(emb)
+            loss = criterion(logits, yb)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss.item()
+            n_batches += 1
+
+        avg_loss = epoch_loss / max(n_batches, 1)
+
+        # Validation
+        encoder.eval()
+        head.eval()
+        val_preds = []
+        with torch.no_grad():
+            for start in range(0, len(X_val), batch_size):
+                xb = torch.tensor(X_val[start:start + batch_size], dtype=torch.float32, device=device)
+                emb = encoder(xb)
+                logits = head(emb)
+                val_preds.append(logits.argmax(dim=-1).cpu().numpy())
+        val_preds = np.concatenate(val_preds)
+        val_f1 = f1_score(y_val, val_preds, average="macro", zero_division=0.0)
+
+        print(f"  Epoch {epoch+1:3d} | train_loss={avg_loss:.4f} | val_macro_F1={val_f1:.4f}")
+
+        if val_f1 > best_f1:
+            best_f1 = val_f1
+            best_state = {k: v.cpu().clone() for k, v in encoder.state_dict().items()}
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+
+        if epochs_no_improve >= patience:
+            print(f"  Early stopping at epoch {epoch+1} (best val macro-F1={best_f1:.4f})")
+            break
+
+    if best_state is None:
+        print("  WARNING: No improvement observed. Saving final encoder state.")
+        best_state = {k: v.cpu().clone() for k, v in encoder.state_dict().items()}
+
+    encoder.load_state_dict(best_state)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    torch.save(best_state, save_path)
+    print(f"  TCN encoder saved: {save_path} (best val macro-F1={best_f1:.4f})")
+    print("--- TCN Encoder Pre-training complete ---\n")
+
+    return encoder
+
+
 def train_multiclass_nowcast(
     X_tr: np.ndarray,
     y_tr: np.ndarray,

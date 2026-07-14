@@ -27,8 +27,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from src.nowcasting.train import (
     train_multiclass_nowcast, 
-    optimize_per_class_thresholds
+    optimize_per_class_thresholds,
+    train_tcn_encoder
 )
+from src.forecasting.causal_lstm import train_causal_lstm
+from src.forecasting.multi_horizon import train_multi_horizon
 from src.preprocessing.cross_calibration import fit_goes_solexs_calibration, apply_goes_calibration
 from src.preprocessing.labels import build_multiclass_labels, create_windows
 from scripts.download_noaa_catalog import download_noaa_catalog
@@ -167,13 +170,13 @@ def get_real_data():
         "xrs_b_roll_var_15m", "xrs_b_roll_max_15m", "xrs_b_roll_max_60m"
     ]
     STEP = 15  # One window every 15 minutes to keep memory manageable on laptops
-    X, y_now, y_fore, dates = create_windows(goes_df, feature_cols=feature_cols, window_size=60, horizon=15, step=STEP)
+    X, y_now, y_fore_dict, dates = create_windows(goes_df, feature_cols=feature_cols, window_size=60, horizon=[15, 30, 60], step=STEP)
 
-    assert len(X) == len(y_now) == len(y_fore) == len(dates), \
-        f"MISALIGNED: X={len(X)} y_now={len(y_now)} y_fore={len(y_fore)} dates={len(dates)}"
+    assert len(X) == len(y_now) == len(y_fore_dict["h15"]) == len(dates), \
+        f"MISALIGNED: X={len(X)} y_now={len(y_now)} y_fore={len(y_fore_dict['h15'])} dates={len(dates)}"
     print(f"Task 1 verified: {len(X)} windows, all arrays aligned")
 
-    return X, y_fore, y_now, dates
+    return X, y_fore_dict, y_now, dates
 
 def temporal_three_way_split(X, y_fore, y_now, dates):
     """
@@ -208,12 +211,19 @@ def main():
     os.makedirs("configs", exist_ok=True)
     
     # 1. Load Data
-    X, y_fore, y_now, dates = get_real_data()
+    X, y_fore_dict, y_now, dates = get_real_data()
+    y_fore = y_fore_dict["h15"]
     
     # 2. Strict 3-Way Temporal Split
     (X_tr, y_fore_tr, y_now_tr, 
      X_val, y_fore_val, y_now_val, 
      X_test, y_fore_test, y_now_test) = temporal_three_way_split(X, y_fore, y_now, dates)
+
+    # Save multi-horizon dicts for Task 5
+    train_mask = dates.year <= 2021
+    val_mask = dates.year == 2022
+    y_tr_dict = {k: v[train_mask] for k, v in y_fore_dict.items()}
+    y_val_dict = {k: v[val_mask] for k, v in y_fore_dict.items()}
     
     del X
     import gc
@@ -245,17 +255,21 @@ def main():
     X_val_norm = (X_val_log - mu) / sigma
     X_test_norm = (X_test_log - mu) / sigma
 
-    print("Extracting features using randomly initialized TCNEncoder...")
+    print("Training TCNEncoder with supervised pre-training...")
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    encoder = TCNEncoder(n_features=9, embed_dim=64, n_layers=4)
+    encoder = train_tcn_encoder(
+        X_tr_norm, y_fore_tr, X_val_norm, y_fore_val,
+        n_features=9, embed_dim=64, n_layers=4,
+        device=device, save_path="models/tcn_encoder.pt"
+    )
 
-    
+    print("Extracting features using trained TCNEncoder...")
     tcn_tr = extract_tcn_features(encoder, X_tr_norm, device=device)
     tcn_val = extract_tcn_features(encoder, X_val_norm, device=device)
     tcn_test = extract_tcn_features(encoder, X_test_norm, device=device)
     
     del X_tr_clean, X_val_clean, X_test_clean, X_tr_log, X_val_log, X_test_log
-    del X_tr_norm, X_val_norm, X_test_norm
+    # DO NOT delete X_tr_norm etc., they are needed for LSTM and MultiHorizon
     gc.collect()
     
     # Print class distribution before training
@@ -332,7 +346,23 @@ def main():
         if idx < len(pers_rec):
             print(f"  {cls_name}-class | Precision: {pers_prec[idx]:.4f} | Recall: {pers_rec[idx]:.4f} | F1: {pers_f1[idx]:.4f}")
     
-    # 7. Hash Generation
+    # 7. Train Task 4: CausalLSTM
+    print("\nTraining CausalLSTM (15-min horizon)...")
+    lstm_model = train_causal_lstm(
+        X_tr_norm, y_fore_tr, X_val_norm, y_fore_val,
+        n_features=9, save_path="models/causal_lstm.pt"
+    )
+
+    # 8. Train Task 5: MultiHorizonForecaster
+    print("\nTraining MultiHorizonForecaster (15, 30, 60-min horizons)...")
+    mh_model = train_multi_horizon(
+        X_tr_norm, y_tr_dict, X_val_norm, y_val_dict,
+        n_features=9, embed_dim=64, 
+        tcn_encoder_path="models/tcn_encoder.pt",
+        save_path="models/multi_horizon.pt"
+    )
+
+    # 9. Hash Generation
     print("\nGenerating model hashes...")
     try:
         with open("configs/model_hashes.yaml", "r") as f:

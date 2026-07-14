@@ -46,7 +46,7 @@ def build_multiclass_labels(df: pd.DataFrame,
 def create_windows(df: pd.DataFrame,
                    feature_cols: list,
                    window_size:  int = 60,
-                   horizon:      int = 15,
+                   horizon:      int | list[int] = 15,
                    step:         int = 1) -> tuple:
     """Sliding window generator returning (X, y_now, y_fore, dates).
 
@@ -58,46 +58,64 @@ def create_windows(df: pd.DataFrame,
     Returns:
         X:      (N, window_size, n_features) float32 array of input windows.
         y_now:  (N,) int64 array of labels at the decision point.
-        y_fore: (N,) int64 array of labels at the forecast horizon.
-        dates:  pandas DatetimeIndex of length N — the decision-point
-                timestamp (df.index[i + window_size - 1]) for each
-                kept window, built inside the same loop as X.
+        y_fore: (N,) int64 array (if horizon is int) or dict of arrays (if list).
+        dates:  pandas DatetimeIndex of length N — the decision-point timestamp.
     """
-    X, y_now, y_fore, date_list = [], [], [], []
+    if isinstance(horizon, int):
+        horizons = [horizon]
+        single_horizon = True
+    else:
+        horizons = horizon
+        single_horizon = False
 
-    # Filter for columns that actually exist
+    X, y_now, date_list = [], [], []
+    y_fore_dict = {h: [] for h in horizons}
+
     available_cols = [c for c in feature_cols if c in df.columns]
 
     data   = df[available_cols].values
     labels = df["label"].values
     index  = df.index  # keep reference for date extraction
 
-    n_total = len(data) - window_size - horizon + 1
+    max_horizon = max(horizons)
+    n_total = len(data) - window_size - max_horizon + 1
+    
     if n_total <= 0:
+        y_fore_ret = np.empty((0,), dtype=np.int64) if single_horizon else {f"h{h}": np.empty((0,), dtype=np.int64) for h in horizons}
         return (
             np.empty((0, window_size, len(available_cols)), dtype=np.float32),
             np.empty((0,), dtype=np.int64),
-            np.empty((0,), dtype=np.int64),
+            y_fore_ret,
             pd.DatetimeIndex([], dtype="datetime64[ns, UTC]"),
         )
 
     for i in range(n_total):
         lbl_now  = labels[i + window_size - 1]
-        lbl_fore = labels[i + window_size + horizon - 1]
+        
+        # Check if ANY of the horizons have a flare
+        is_flare_window = (lbl_now > 0)
+        lbls_fore = {}
+        for h in horizons:
+            lbl_h = labels[i + window_size + h - 1]
+            lbls_fore[h] = lbl_h
+            if lbl_h > 0:
+                is_flare_window = True
 
-        is_flare_window = (lbl_now > 0) or (lbl_fore > 0)
-
-        # Keep ALL flare windows; downsample background by step
         if is_flare_window or (i % step == 0):
             X.append(data[i:i + window_size])
             y_now.append(lbl_now)
-            y_fore.append(lbl_fore)
+            for h in horizons:
+                y_fore_dict[h].append(lbls_fore[h])
             date_list.append(index[i + window_size - 1])
+
+    y_fore_res = {f"h{h}": np.array(y_fore_dict[h], dtype=np.int64) for h in horizons}
+    if single_horizon:
+        y_fore_res = y_fore_res[f"h{horizons[0]}"]
 
     return (
         np.array(X,      dtype=np.float32),
         np.array(y_now,  dtype=np.int64),
-        np.array(y_fore, dtype=np.int64),
+        y_fore_res,
         pd.DatetimeIndex(date_list),
     )
 

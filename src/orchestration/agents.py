@@ -75,7 +75,7 @@ def _get_lstm_model():
         pt_path = "models/causal_lstm.pt"
         if os.path.exists(pt_path):
             from src.forecasting.causal_lstm import CausalLSTMForecaster
-            model = CausalLSTMForecaster(n_features=8)
+            model = CausalLSTMForecaster(n_features=9)
             model.load_state_dict(
                 torch.load(pt_path, map_location="cpu", weights_only=True)
             )
