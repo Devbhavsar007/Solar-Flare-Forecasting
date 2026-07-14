@@ -95,7 +95,7 @@ def get_hel1os_windows(base_dir: str) -> pd.DataFrame:
         
     return pd.DataFrame(records)
 
-def build_subset(hel1os_dir: str, catalog_path: str, out_dir: str, target_classes: list, quiet_sun_ratio: float = 1.0, dry_run: bool = False, verify_expansion: bool = False, exclude_flares: bool = False):
+def build_subset(hel1os_dir: str, catalog_path: str, out_dir: str, target_classes: list, quiet_sun_ratio: float = 1.0, dry_run: bool = False, verify_expansion: bool = False, exclude_flares: bool = False, split_part: int = 0):
     """
     Cross-references HEL1OS windows against GOES flare windows and copies the matched files.
     """
@@ -168,6 +168,17 @@ def build_subset(hel1os_dir: str, catalog_path: str, out_dir: str, target_classe
         print(f"\n[INFO] --exclude-flares flag passed. Dropping the {len(matched_flares_df)} flare files.")
     else:
         final_subset = pd.concat([matched_flares_df, sampled_quiet_df]).drop_duplicates(subset=['filename'])
+        
+    if split_part in [1, 2]:
+        final_subset = final_subset.sample(frac=1, random_state=42).reset_index(drop=True)
+        half = len(final_subset) // 2
+        if split_part == 1:
+            final_subset = final_subset.iloc[:half]
+            print(f"\n[INFO] --split-part 1 passed. Taking first half of shuffled dataset ({len(final_subset)} files).")
+        else:
+            final_subset = final_subset.iloc[half:]
+            print(f"\n[INFO] --split-part 2 passed. Taking second half of shuffled dataset ({len(final_subset)} files).")
+
     total_size_mb = sum([os.path.getsize(f) for f in final_subset['filepath']]) / (1024*1024)
     
     print(f"\n--- 5. Subset Summary ---")
@@ -219,6 +230,7 @@ if __name__ == "__main__":
     parser.add_argument('--dry-run', action='store_true', help="Do not copy files, just print stats")
     parser.add_argument('--verify-expansion', action='store_true', help="Calculate exact uncompressed size by reading zip headers (takes a minute)")
     parser.add_argument('--exclude-flares', action='store_true', help="Exclude flares and return ONLY the quiet-sun sampled dataset")
+    parser.add_argument('--split-part', type=int, choices=[1, 2], help="Split the combined dataset in half and process only part 1 or 2")
     
     args = parser.parse_args()
-    build_subset(args.hel1os_dir, args.catalog, args.out_dir, args.classes, args.quiet_ratio, args.dry_run, args.verify_expansion, args.exclude_flares)
+    build_subset(args.hel1os_dir, args.catalog, args.out_dir, args.classes, args.quiet_ratio, args.dry_run, args.verify_expansion, args.exclude_flares, args.split_part)
