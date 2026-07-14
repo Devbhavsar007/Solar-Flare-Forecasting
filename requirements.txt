@@ -19,7 +19,7 @@ astropy==8.0.0
 sunpy==7.0.5
 scipy==1.17.1
 joblib==1.5.3
-scikit-learn
+scikit-learn>=1.4
 lxml
 zeep
 drms

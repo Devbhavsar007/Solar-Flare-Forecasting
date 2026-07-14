@@ -25,7 +25,7 @@ def load_and_preprocess_hel1os():
     
     # Resample 1s cadence to 1min cadence for modeling
     print("Resampling HEL1OS data to 1-minute cadence...")
-    hel1os_df = hel1os_df.resample('1min').mean().fillna(0)
+    hel1os_df = hel1os_df.resample('1min').mean()
     
     print("Loading NOAA master catalog...")
     noaa_path = "data/raw/noaa_catalog.parquet"
@@ -48,7 +48,9 @@ def load_and_preprocess_hel1os():
     
     hel1os_df['counts_low_roll_max_15m'] = hel1os_df['counts_low'].rolling(15, min_periods=1).max()
     hel1os_df['counts_high_roll_max_15m'] = hel1os_df['counts_high'].rolling(15, min_periods=1).max()
-    hel1os_df.fillna(0, inplace=True)
+    
+    # Drop rows where counts are NaN to mask out data gaps
+    hel1os_df.dropna(subset=['counts_low', 'counts_high'], inplace=True)
     
     # Override 'label' so create_windows uses binary_label
     hel1os_df['label'] = hel1os_df['binary_label']
