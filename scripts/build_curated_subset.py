@@ -95,7 +95,7 @@ def get_hel1os_windows(base_dir: str) -> pd.DataFrame:
         
     return pd.DataFrame(records)
 
-def build_subset(hel1os_dir: str, catalog_path: str, out_dir: str, target_classes: list, quiet_sun_ratio: float = 1.0, dry_run: bool = False, verify_expansion: bool = False):
+def build_subset(hel1os_dir: str, catalog_path: str, out_dir: str, target_classes: list, quiet_sun_ratio: float = 1.0, dry_run: bool = False, verify_expansion: bool = False, exclude_flares: bool = False):
     """
     Cross-references HEL1OS windows against GOES flare windows and copies the matched files.
     """
@@ -163,7 +163,11 @@ def build_subset(hel1os_dir: str, catalog_path: str, out_dir: str, target_classe
     print(f"Sampled {len(sampled_quiet_df)} quiet-sun files for balance (ratio={quiet_sun_ratio}).")
     
     # Combine
-    final_subset = pd.concat([matched_flares_df, sampled_quiet_df]).drop_duplicates(subset=['filename'])
+    if exclude_flares:
+        final_subset = sampled_quiet_df.copy()
+        print(f"\n[INFO] --exclude-flares flag passed. Dropping the {len(matched_flares_df)} flare files.")
+    else:
+        final_subset = pd.concat([matched_flares_df, sampled_quiet_df]).drop_duplicates(subset=['filename'])
     total_size_mb = sum([os.path.getsize(f) for f in final_subset['filepath']]) / (1024*1024)
     
     print(f"\n--- 5. Subset Summary ---")
@@ -214,6 +218,7 @@ if __name__ == "__main__":
     parser.add_argument("--quiet-ratio", type=float, default=1.0, help="Ratio of quiet-sun files to flare files")
     parser.add_argument('--dry-run', action='store_true', help="Do not copy files, just print stats")
     parser.add_argument('--verify-expansion', action='store_true', help="Calculate exact uncompressed size by reading zip headers (takes a minute)")
+    parser.add_argument('--exclude-flares', action='store_true', help="Exclude flares and return ONLY the quiet-sun sampled dataset")
     
     args = parser.parse_args()
-    build_subset(args.hel1os_dir, args.catalog, args.out_dir, args.classes, args.quiet_ratio, args.dry_run, args.verify_expansion)
+    build_subset(args.hel1os_dir, args.catalog, args.out_dir, args.classes, args.quiet_ratio, args.dry_run, args.verify_expansion, args.exclude_flares)
