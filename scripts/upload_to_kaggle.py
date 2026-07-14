@@ -23,7 +23,7 @@ def deploy_part(part_num, out_dir, slug, title):
     
     # 2. Kaggle Init
     print("\n2. Initializing Kaggle dataset metadata...")
-    run_cmd(f"kaggle datasets init -p {out_dir}")
+    run_cmd(f"python -m kaggle datasets init -p {out_dir}")
     
     # 3. Update Metadata
     print("\n3. Updating dataset-metadata.json...")
@@ -41,7 +41,7 @@ def deploy_part(part_num, out_dir, slug, title):
     # using `-r zip` since they're already zip, we want Kaggle to extract them, wait, default Kaggle unzips everything. Wait! Kaggle `-r zip` tells the CLI to compress the folder into a zip. We don't want to double compress!
     # Without -r, it just uploads the files. And Kaggle extracts zip files uploaded. So we should NOT use -r zip!
     print("\n4. Uploading to Kaggle...")
-    run_cmd(f"kaggle datasets create -p {out_dir}")
+    run_cmd(f"python -m kaggle datasets create -p {out_dir}")
     
     print(f"--- Part {part_num} Deployment Complete ---\n")
 
