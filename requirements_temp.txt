@@ -1,4 +1,4 @@
-torch==2.12.1
+torch==2.13.0
 xgboost==3.2.0
 timesfm==2.0.1
 chronos-forecasting==2.3.0
